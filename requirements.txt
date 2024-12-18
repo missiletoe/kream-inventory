@@ -1,0 +1,9 @@
+AppKit==0.2.8
+chromedriver_autoinstaller==0.6.4
+pyobjc_framework_Cocoa==10.3.1
+PyQt5==5.15.11
+PyQt5_sip==12.13.0
+Requests==2.32.3
+selenium==4.26.1
+setuptools==75.5.0
+setuptools==75.1.0
