@@ -120,7 +120,7 @@ class MacroWorker(QObject):
 
 
     def macro(self, email, pw, size=sel1, qty=sel2, count=0):
-        global done # 완료 여부 전역 변수 설정
+        global done, click_term # 완료 여부, 클릭 텀 전역 변수 설정
 
         while self.is_running: # 실행 중일 경우
 
@@ -160,15 +160,16 @@ class MacroWorker(QObject):
                 if 'show' in popup.get_attribute('class'): # 팝업 요소의 클래스에 'show'가 포함되어 있을 경우
                     self.update_log(f'{popup.text}') # 팝업 메시지 출력
 
-                    if popup.text == '인터넷, 와이파이, 모바일 데이터 혹은 비행기모드 설정을 확인해 주시기 바랍니다.': # 팝업 메시지가 '인터넷, 와이파이, 모바일 데이터 혹은 비행기모드 설정을 확인해 주시기 바랍니다.'일 경우
-                        block_time = datetime.now() + timedelta(minutes=33, seconds=20) # 차단 시간 설정
-                        self.update_log(f'[{time.strftime("%H:%M:%S")}] {block_time.strftime("%H시 %M분 %S초")}에 매크로 재개') # IP 차단 메시지 출력
+                    if popup.text == '상대방의 입찰 삭제, 카드사 응답실패 등 예상치 못한 오류로 인해 계속 진행할 수 없습니다. 이전 단계로 돌아갑니다.' or popup.text == '인터넷, 와이파이, 모바일 데이터 혹은 비행기모드 설정을 확인해 주시기 바랍니다.': # 팝업 메시지가 특정 메시지일 경우
+                        block_time = datetime.now() + timedelta(seconds=60) # 차단 시간 설정
+                        self.update_log(f'[{time.strftime("%H:%M:%S")} ~ {block_time.strftime("%H:%M:%S")}] 매크로 중단') # IP 차단 메시지 출력
+                        count = 0 # 카운트 초기화
                         
-                        if not self.interruptible_sleep(2000): # 2000초 (33분 20초) 대기
+                        if not self.interruptible_sleep(3600 - click_term * 200): # [ 3600초(1시간) - (클릭 텀 * 200번) ] 대기
                             return # 반환
                         continue # 다음 반복문으로 이동
 
-                    if not self.interruptible_sleep(7): # 7초 대기
+                    if not self.interruptible_sleep(click_term - 1): # 클릭 텀 - 1초 대기
                         return # 반환
                     continue # 다음 반복문으로 이동
 
@@ -658,7 +659,7 @@ class App(QWidget): # App 클래스 정의
         self.update_log(f'[{time.strftime("%H:%M:%S")}] 크림에 {email} 계정으로 로그인되었습니다.') # 로그인 완료 메시지 출력
 
     def start_macro(self):
-        global sel1, sel2, inventorypage # 선택된 사이즈와 수량, 인벤토리 페이지 URL 전역 변수 설정
+        global sel1, sel2, inventorypage, click_term # 선택된 사이즈와 수량, 인벤토리 페이지 URL 전역 변수 설정
 
         self.left_button.setEnabled(False) # 왼쪽 버튼 비활성화
         self.right_button.setEnabled(False) # 오른쪽 버튼 비활성화
@@ -713,6 +714,14 @@ class App(QWidget): # App 클래스 정의
         layout.addWidget(qty_label)
         layout.addWidget(qty_spin)
 
+        # Click term dropdown
+        click_term_label = QLabel('클릭 텀 (초):')
+        click_term_combo = QComboBox()
+        click_term_combo.addItems([str(i) for i in range(8, 19)])
+        click_term_combo.setCurrentIndex(click_term_combo.count() - 1)
+        layout.addWidget(click_term_label)
+        layout.addWidget(click_term_combo)
+
         # Dialog buttons
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
@@ -728,8 +737,10 @@ class App(QWidget): # App 클래스 정의
         if dialog.exec_() == QDialog.Accepted:
             sel1 = size_combo.currentIndex() + 1
             sel2 = qty_spin.value()
-            self.update_log(f'선택된 사이즈: {size_options[sel1-1]}')
+            click_term = int(click_term_combo.currentText())
+            self.update_log(f'\n\n선택된 사이즈: {size_options[sel1-1]}')
             self.update_log(f'선택된 수량: {sel2}')
+            self.update_log(f'선택된 클릭 텀: {click_term}초')
             
             self.search_input.setEnabled(False)
             self.search_button.setEnabled(False)
