@@ -173,7 +173,7 @@ class MacroWorker(QObject):
                         return # 반환
                     continue # 다음 반복문으로 이동
 
-                elif box is None: # 사이즈 박스 요소가 없을 경우
+                else: # 팝업 요소의 클래스에 'show'가 포함되어 있지 않을 경우
                     try: # 예외 처리
                         self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 진행 중...') # 보증금 결제 중 메시지 출력
                         self.payment() # 결제 함수 실행
@@ -410,7 +410,7 @@ class App(QWidget): # App 클래스 정의
 
         search_results = None # 검색 결과 초기화
 
-        search_url = f'https://kream.co.kr/search?keyword={new_keyword}&tab=products&delivery_method=quick_delivery&sort=popular_score' # 검색 URL 설정
+        search_url = f'https://kream.co.kr/search?keyword={new_keyword}&tab=products&sort=popular_score' # 검색 URL 설정
         if new_keyword != keyword: # 새로운 검색어가 이전 검색어와 다를 경우
             self.i = 0 # i를 0으로 설정
             keyword = new_keyword # 검색어 설정
@@ -509,7 +509,7 @@ class App(QWidget): # App 클래스 정의
             
             try:
                 result.find_element(By.CSS_SELECTOR, 'svg[class="ico-brand-official icon sprite-icons"]') # 브랜드배송 요소 찾기
-                self.update_log(f'<br><b><i><div style="text-align: center;">보관판매가 불가능한 브랜드배송 제품입니다. 다시 검색해주세요.<br><br></div></i></b>', html=True) # 브랜드배송 제품 메시지 출력
+                self.update_log(f'<br><b><i><div style="text-align: center;">보관판매가 불가능한 브랜드배송 제품입니다.<br></div></i></b>', html=True) # 브랜드배송 제품 메시지 출력
                 is_brand = True # 브랜드배송 여부 설정
                 self.search_details_button.setEnabled(False) # 제품 상세정보 버튼 비활성화
                 return
@@ -517,11 +517,28 @@ class App(QWidget): # App 클래스 정의
             except NoSuchElementException: # 요소 없음 예외 발생 시
                 pass
 
-            self.search_details_button.setEnabled(True)
+            self.search_details_button.setEnabled(True) # 제품 상세정보 버튼 활성화
+            self.search_button.setEnabled(False) # 검색 버튼 비활성화
 
+            try:
 
-            if is_logged_in == True:
-                self.start_button.setEnabled(True)
+                if '빠른배송' in result.find_element(By.CSS_SELECTOR, 'div[class="tags"]').text:
+
+                    if is_logged_in == True:
+                        self.start_button.setEnabled(True)
+
+                    else:
+                        self.start_button.setEnabled(False)
+
+                    return
+                
+                else:
+                    self.update_log('<br><div style="text-align: center;"><b>제품 상세정보</b> 버튼을 눌러 보관판매 여부를 확인하세요.<br></div>', html=True)
+                    return
+                
+            except NoSuchElementException:
+                QMessageBox.warning(self, '요소 없음', '제품 상세정보 버튼을 눌러 보관판매 여부를 확인하세요.')
+                return
 
         except NoSuchElementException: # 요소 없음 예외 발생 시
             QMessageBox.warning(self, '요소 없음', '검색 결과가 없습니다.')
@@ -538,19 +555,52 @@ class App(QWidget): # App 클래스 정의
 
     def product_details(self):
         browser.get('https://kream.co.kr/products/' + product_id)
-        WebDriverWait(browser, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body'))) # 로딩 완료 대기
-        details = browser.find_elements(By.XPATH, '//div[@class="detail-box"]/div[@class="product_info"]')
-        colors = browser.find_element(By.XPATH, '//div[@class="detail-box"]/div[@class="product_info color-target"]').text
-        self.update_log(f'발매가: <b>{details[0].text}</b>', html=True)
+
+        try:
+            WebDriverWait(browser, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body'))) # 로딩 완료 대기
+            details = browser.find_elements(By.XPATH, '//div[@class="detail-box"]/div[@class="product_info"]')
+            colors = browser.find_element(By.XPATH, '//div[@class="detail-box"]/div[@class="product_info color-target"]').text
+
+        except TimeoutException:
+            browser.refresh()
+            return
+        
+        except NoSuchElementException:
+            browser.refresh()
+            return
+        
+        self.update_log(f'<br>발매가: <b>{details[0].text}</b>', html=True)
         self.update_log(f'모델번호: <b>{details[1].text}</b>', html=True)
         self.update_log(f'출시일: <b>{details[2].text}</b>', html=True)
         self.update_log(f'대표색상: <b>{colors}</b>', html=True)
+
+        try:
+            delivery_way = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="delivery_way_wrap"]'))).text
+
+            if '창고보관' in delivery_way:
+                self.update_log('<br><b><i><div style="text-align: center;">보관판매 가능한 제품입니다.<br></div></i></b>', html=True)
+                if is_logged_in == True:
+                    self.start_button.setEnabled(True)
+                
+                else:
+                    self.update_log('<b><i><div style="text-align: center;">크림 계정으로 로그인해주세요.<br><br></div></i></b>', html=True)
+                    self.start_button.setEnabled(False)
+            
+            else:
+                self.update_log('<br><b><i><div style="text-align: center;">보관판매가 불가능한 제품입니다.<br></div></i></b>', html=True)
+                self.start_button.setEnabled(False)
+
+        except TimeoutException:
+            self.update_log('<br><b><i><div style="text-align: center;">보관판매가 불가능한 제품입니다.<br></div></i></b>', html=True)
+            self.start_button.setEnabled(False)
 
         self.search_button.setEnabled(True)
         self.search_details_button = QPushButton('체결 거래정보', self)
         self.search_details_button.clicked.connect(self.product_sales)
         self.left_button.setEnabled(False)
         self.right_button.setEnabled(False)
+
+
     
     def product_sales(self):
         WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[class="btn outlinegrey full medium"]'))).click()
