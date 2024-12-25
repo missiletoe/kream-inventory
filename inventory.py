@@ -58,7 +58,7 @@ if sys.platform == 'darwin':  # macOS platform
 options = webdriver.ChromeOptions()  # Chrome 옵션 객체 생성
 user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'  # 사용자 에이전트 설정
 options.add_argument(f'user-agent={user_agent}')  # 사용자 에이전트 옵션 추가
-options.add_argument('--headless')  # 헤드리스 모드 옵션 추가
+# options.add_argument('--headless')  # 헤드리스 모드 옵션 추가
 options.add_argument('--disable-gpu')  # GPU 비활성화 옵션 추가
 options.add_argument('--no-sandbox')  # 샌드박스 비활성화 옵션 추가
 options.add_argument('--disable-dev-shm-usage')  # /dev/shm 사용 비활성화 옵션 추가
@@ -125,7 +125,7 @@ class MacroWorker(QObject):
         while self.is_running: # 실행 중일 경우
 
             try:
-                if 'https://kream.co.kr/login' in browser.current_url: # 현재 URL이 로그인 페이지일 경우
+                if 'login' in browser.current_url: # 현재 URL이 로그인 페이지일 경우
                     self.relogin(email, pw) # 다시 로그인
             
             except KeyboardInterrupt: # 사용자가 Ctrl+C를 눌렀을 경우
@@ -173,10 +173,36 @@ class MacroWorker(QObject):
                         return # 반환
                     continue # 다음 반복문으로 이동
 
-                else: # 팝업 요소의 클래스에 'show'가 포함되어 있지 않을 경우
+                else: # 팝업 요소의 클래스에 'show'가 포함되어 있지 않을 경우 (페이지가 넘어간 경우)
                     try: # 예외 처리
                         self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 진행 중...') # 보증금 결제 중 메시지 출력
-                        self.payment() # 결제 함수 실행
+                        purchase_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, '//button[@class="display_button large dark_filled active block bold"]'))) # 구매 버튼 요소 찾기
+                        purchase_button.click() # 구매 버튼 클릭
+
+                        for i in range(1, 4):
+                            WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, f'//div[@class="title-description-checkbox line"][{i}]'))).click() # 체크박스 요소 클릭
+
+                        purchase_button2 = WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, '//div[@class="layer_container"]//button[@class="display_button large dark_filled active block bold"]'))) # 구매 버튼 요소 찾기
+                        purchase_button2.click() # 구매 버튼 클릭
+
+                        popup = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[id="toast"]'))) # 팝업 요소 찾기
+                        time.sleep(1) # 1초 대기
+
+                        if 'show' in popup.get_attribute('class'): # 팝업 요소의 클래스에 'show'가 포함되어 있을 경우
+                            self.update_log(f'{popup.text}') # 팝업 메시지 출력
+                            self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 실패. 다시 시도합니다.') # 보증금 결제 실패 메시지 출력
+                            browser.refresh() # 브라우저 새로고침
+                            if not self.interruptible_sleep(click_term - 1): # 클릭 텀 - 1초 대기
+                                return # 반환
+                            continue # 다음 반복문으로 이동
+                                
+                        else:
+                            deadline = datetime.now() # 현재 시간 설정
+                            deadline += timedelta(days=3 if deadline.weekday() in {5, 6} else 2) # 토요일, 일요일일 경우 3일, 그 외의 경우 2일 추가
+                            self.update_log(f'<br><b>[{time.strftime("%H:%M:%S")}] 보관판매 신청 성공!</b><br>', html=True) # 보관판매 신청 성공 메시지 출력
+                            self.update_log(f'<b>{deadline.strftime("%Y년 %m월 %d일 (%a요일) %H시 %M분").replace("Mon", "월").replace("Tue", "화").replace("Wed", "수").replace("Thu", "목").replace("Fri", "금").replace("Sat", "토").replace("Sun", "일")}까지 송장번호를 입력해야 합니다.</b>', html=True) # 송장번호 입력 마감 시간 메시지 출력
+                            done = True # 완료 여부 설정
+                            return # 반환
 
                     except KeyboardInterrupt: # 사용자가 Ctrl+C를 눌렀을 경우
                         sys.exit(f'[{time.strftime("%H:%M:%S")}] 사용자에 의해 종료되었습니다.') # 종료 메시지 출력
@@ -186,7 +212,7 @@ class MacroWorker(QObject):
                             return # 반환
                         self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 중 오류 발생. 다시 시도합니다') # 보증금 결제 오류 메시지 출력
                         browser.refresh() # 브라우저 새로고침
-                        if not self.interruptible_sleep(7): # 7초 대기
+                        if not self.interruptible_sleep(click_term - 1): # 클릭 텀 - 1초 대기
                             return # 반환
                         continue # 다음 반복문으로 이동
             
@@ -198,29 +224,6 @@ class MacroWorker(QObject):
                 if not self.interruptible_sleep(3): # 3초 대기
                     return # 반환
                 continue # 다음 반복문으로 이동
-
-
-    def payment(self):
-        global done # 완료 여부 전역 변수 설정
-
-        purchase_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, '//button[@class="display_button large dark_filled active block bold"]'))) # 구매 버튼 요소 찾기
-        purchase_button.click() # 구매 버튼 클릭
-
-        for i in range(1, 4):
-            WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, f'//div[@class="title-description-checkbox line"][{i}]'))).click() # 체크박스 요소 클릭
-
-        purchase_button2 = WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, '//div[@class="layer_container"]//button[@class="display_button large dark_filled active block bold"]'))) # 구매 버튼 요소 찾기
-        purchase_button2.click() # 구매 버튼 클릭
-
-        deadline = datetime.now() # 현재 시간 설정
-        deadline += timedelta(days=3 if deadline.weekday() in {5, 6} else 2) # 토요일, 일요일일 경우 3일, 그 외의 경우 2일 추가
-        self.update_log(f'<br><b>[{time.strftime("%H:%M:%S")}] 보관판매 신청 성공!</b><br>', html=True) # 보관판매 신청 성공 메시지 출력
-        self.update_log(f'<b><i>{deadline.strftime("%Y년 %m월 %d일 (%a요일) %H시 %M분").replace("Mon", "월").replace("Tue", "화").replace("Wed", "수").replace("Thu", "목").replace("Fri", "금").replace("Sat", "토").replace("Sun", "일")}</i>까지 송장번호를 입력해야 합니다.</b>', html=True) # 송장번호 입력 마감 시간 메시지 출력
-        done = True # 완료 여부 설정
-        self.interruptible_sleep(3600) # 1시간 대기
-
-        sys.exit(f'[{time.strftime('%H:%M:%S')}] 보관판매 신청 성공! {deadline.strftime("%Y년 %m월 %d일 (%a요일) %H시 %M분").replace("Mon", "월").replace("Tue", "화").replace("Wed", "수").replace("Thu", "목").replace("Fri", "금").replace("Sat", "토").replace("Sun", "일")}까지 송장번호를 입력해야 합니다.') # 송장번호 입력 마감 시간 메시지 출력
-    
 
     def relogin(self, email, pw):
         self.update_log(f'<br><b>[{time.strftime("%H:%M:%S")}] 로그인 세션이 만료되었습니다. 다시 로그인합니다.</b><br>', html=True) # 로그인 세션 만료 메시지 출력
@@ -287,25 +290,6 @@ class App(QWidget): # App 클래스 정의
 
         horizontal_layout = QHBoxLayout() # 수평 레이아웃 객체 생성
 
-        self.search_input = QLineEdit(self) # 검색 입력 위젯 생성
-        self.search_input.setPlaceholderText('제품명 입력') # 검색 입력 위젯에 플레이스홀더 텍스트 설정
-        self.search_input.returnPressed.connect(self.search_product) # 검색 입력 위젯에서 엔터 키를 누르면 제품 검색 함수 실행
-        horizontal_layout.addWidget(self.search_input, 3) # 수평 레이아웃에 검색 입력 위젯 추가
-
-        self.search_button = QPushButton('검색', self) # 검색 버튼 생성
-        self.search_button.clicked.connect(self.search_product) # 검색 버튼 클릭 시 제품 검색 함수 실행
-        horizontal_layout.addWidget(self.search_button, 1) # 수평 레이아웃에 검색 버튼 추가
-
-        self.search_details_button = QPushButton('제품 상세정보', self) # 제품 상세정보 버튼 생성
-        self.search_details_button.setEnabled(False) # 제품 상세정보 버튼 비활성화
-        self.search_details_button.clicked.connect(self.product_details) # 제품 상세정보 버튼 클릭 시 제품 상세정보 함수 실행
-        horizontal_layout.addWidget(self.search_details_button, 1) # 수평 레이아웃에 제품 상세정보 버튼 추가
-
-        horizontal_layout.addSpacing(20)  # Add horizontal gap
-        screen = QApplication.primaryScreen() # 주 화면 객체 생성
-        if sys.platform == 'win32' and screen.logicalDotsPerInch() > 96: # Windows 플랫폼이고 DPI가 96보다 클 경우
-            horizontal_layout.addSpacing(20)  # Add horizontal gap
-
         self.email_input = QLineEdit(self) # 이메일 입력 위젯 생성
         self.email_input.setPlaceholderText('크림 계정 이메일 입력') # 이메일 입력 위젯에 플레이스홀더 텍스트 설정
         self.email_input.setClearButtonEnabled(True) # 이메일 입력 위젯에 지우기 버튼 활성화
@@ -323,6 +307,25 @@ class App(QWidget): # App 클래스 정의
         horizontal_layout.addWidget(self.login_button, 1) # 수평 레이아웃에 로그인 버튼 추가
 
         horizontal_layout.addSpacing(20)  # Add horizontal gap
+        if sys.platform == 'win32' and screen.logicalDotsPerInch() > 96: # Windows 플랫폼이고 DPI가 96보다 클 경우
+            horizontal_layout.addSpacing(20)  # Add horizontal gap
+
+        self.search_input = QLineEdit(self) # 검색 입력 위젯 생성
+        self.search_input.setPlaceholderText('제품명 입력') # 검색 입력 위젯에 플레이스홀더 텍스트 설정
+        self.search_input.returnPressed.connect(self.search_product) # 검색 입력 위젯에서 엔터 키를 누르면 제품 검색 함수 실행
+        horizontal_layout.addWidget(self.search_input, 3) # 수평 레이아웃에 검색 입력 위젯 추가
+
+        self.search_button = QPushButton('검색', self) # 검색 버튼 생성
+        self.search_button.clicked.connect(self.search_product) # 검색 버튼 클릭 시 제품 검색 함수 실행
+        horizontal_layout.addWidget(self.search_button, 1) # 수평 레이아웃에 검색 버튼 추가
+
+        self.search_details_button = QPushButton('제품 상세정보', self) # 제품 상세정보 버튼 생성
+        self.search_details_button.setEnabled(False) # 제품 상세정보 버튼 비활성화
+        self.search_details_button.clicked.connect(self.product_details) # 제품 상세정보 버튼 클릭 시 제품 상세정보 함수 실행
+        horizontal_layout.addWidget(self.search_details_button, 1) # 수평 레이아웃에 제품 상세정보 버튼 추가
+
+        horizontal_layout.addSpacing(20)  # Add horizontal gap
+        screen = QApplication.primaryScreen() # 주 화면 객체 생성
         if sys.platform == 'win32' and screen.logicalDotsPerInch() > 96: # Windows 플랫폼이고 DPI가 96보다 클 경우
             horizontal_layout.addSpacing(20)  # Add horizontal gap
 
