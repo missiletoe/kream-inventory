@@ -1,3 +1,6 @@
 .DS_Store
+.vscode
+build
+dist
 setup.py
-inventory.ipynb
+inventory.spec
