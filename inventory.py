@@ -155,6 +155,12 @@ class MacroWorker(QObject):
                 continue_button.click() # 계속하기 버튼 클릭
                 self.update_log(f'[{time.strftime("%H:%M:%S")}] {count}회 시도') # 보관판매 시도 메시지 출력
                 
+                if '안쪽 라벨 사이즈' in browser.find_element(By.CSS_SELECTOR, 'div[class="layer_container"]').text: # 안쪽 라벨 사이즈 확인 팝업이 있을 경우
+                    example_boxes = WebDriverWait(browser, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="example_box"] label')))
+                    for label in example_boxes:
+                        label.click()
+                    WebDriverWait(browser, 3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[class="btn solid full large"]'))).click()
+
                 popup = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[id="toast"]'))) # 팝업 요소 찾기
                 time.sleep(2) # 2초 대기
 
@@ -669,7 +675,7 @@ class App(QWidget): # App 클래스 정의
         has_valid_length = 8 <= len(password) <= 16 # 비밀번호 길이가 8 이상 16 이하인지 확인
         has_letter = re.search(r'[A-Za-z]', password) # 영문자가 포함되어 있는지 확인
         has_number = re.search(r'[0-9]', password) # 숫자가 포함되어 있는지 확인
-        has_special = re.search(r'[!@#$%^&*(),.?":{}|<>+]', password) # 특수문자가 포함되어 있는지 확인
+        has_special = re.search(r'[!@#$%^&*(),.?":{}|<>+-]', password) # 특수문자가 포함되어 있는지 확인
         return all([has_valid_length, has_letter, has_number, has_special]) # 모든 조건이 참인지 반환
 
 
