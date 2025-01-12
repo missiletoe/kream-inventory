@@ -13,6 +13,7 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException 
 import requests  # HTTP 요청을 보내기 위한 requests 모듈을 가져옴
 import chromedriver_autoinstaller  # chromedriver-autoinstaller 모듈을 가져옴
 from datetime import datetime, timedelta  # 날짜와 시간을 다루기 위한 datetime 모듈을 가져옴
+import urllib.parse  # URL 인코딩을 위한 urllib.parse 모듈을 가져옴
 import sys  # 시스템 관련 모듈을 가져옴
 import time  # 시간 관련 모듈을 가져옴
 import re  # 정규 표현식을 다루기 위한 re 모듈을 가져옴
@@ -58,7 +59,7 @@ if sys.platform == 'darwin':  # macOS platform
 options = webdriver.ChromeOptions()  # Chrome 옵션 객체 생성
 user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'  # 사용자 에이전트 설정
 options.add_argument(f'user-agent={user_agent}')  # 사용자 에이전트 옵션 추가
-options.add_argument('--headless')  # 헤드리스 모드 옵션 추가
+# options.add_argument('--headless')  # 헤드리스 모드 옵션 추가
 options.add_argument('--disable-gpu')  # GPU 비활성화 옵션 추가
 options.add_argument('--no-sandbox')  # 샌드박스 비활성화 옵션 추가
 options.add_argument('--disable-dev-shm-usage')  # /dev/shm 사용 비활성화 옵션 추가
@@ -120,12 +121,12 @@ class MacroWorker(QObject):
 
 
     def macro(self, email, pw, size=sel1, qty=sel2, count=0):
-        global done # 완료 여부 전역 변수 설정
+        global done, click_term # 완료 여부, 클릭 텀 전역 변수 설정
 
         while self.is_running: # 실행 중일 경우
 
             try:
-                if 'https://kream.co.kr/login' in browser.current_url: # 현재 URL이 로그인 페이지일 경우
+                if 'login' in browser.current_url: # 현재 URL이 로그인 페이지일 경우
                     self.relogin(email, pw) # 다시 로그인
             
             except KeyboardInterrupt: # 사용자가 Ctrl+C를 눌렀을 경우
@@ -154,25 +155,34 @@ class MacroWorker(QObject):
                 continue_button.click() # 계속하기 버튼 클릭
                 self.update_log(f'[{time.strftime("%H:%M:%S")}] {count}회 시도') # 보관판매 시도 메시지 출력
                 
+                if '안쪽 라벨 사이즈' in browser.find_element(By.CSS_SELECTOR, 'div[class="layer_container"]').text: # 안쪽 라벨 사이즈 확인 팝업이 있을 경우
+                    example_boxes = WebDriverWait(browser, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="example_box"] label')))
+                    for label in example_boxes:
+                        label.click()
+                    WebDriverWait(browser, 3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[class="btn solid full large"]'))).click()
+
                 popup = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[id="toast"]'))) # 팝업 요소 찾기
-                time.sleep(1) # 1초 대기
+                time.sleep(2) # 2초 대기
 
                 if 'show' in popup.get_attribute('class'): # 팝업 요소의 클래스에 'show'가 포함되어 있을 경우
                     self.update_log(f'{popup.text}') # 팝업 메시지 출력
 
-                    if popup.text == '인터넷, 와이파이, 모바일 데이터 혹은 비행기모드 설정을 확인해 주시기 바랍니다.': # 팝업 메시지가 '인터넷, 와이파이, 모바일 데이터 혹은 비행기모드 설정을 확인해 주시기 바랍니다.'일 경우
-                        block_time = datetime.now() + timedelta(minutes=33, seconds=20) # 차단 시간 설정
-                        self.update_log(f'[{time.strftime("%H:%M:%S")}] {block_time.strftime("%H시 %M분 %S초")}에 매크로 재개') # IP 차단 메시지 출력
+                    if popup.text == '상대방의 입찰 삭제, 카드사 응답실패 등 예상치 못한 오류로 인해 계속 진행할 수 없습니다. 이전 단계로 돌아갑니다.' or popup.text == '인터넷, 와이파이, 모바일 데이터 혹은 비행기모드 설정을 확인해 주시기 바랍니다.': # 팝업 메시지가 특정 메시지일 경우
+                        block_time = datetime.now() + timedelta(seconds=(3600 - click_term * 200)) # 차단 시간 설정
+                        self.update_log(f'[{time.strftime("%H:%M:%S")} ~ {block_time.strftime("%H:%M:%S")}] 매크로 중단') # IP 차단 메시지 출력
+                        count = 0 # 카운트 초기화
                         
-                        if not self.interruptible_sleep(2000): # 2000초 (33분 20초) 대기
+                        if not self.interruptible_sleep(3600 - click_term * 200): # [ 3600초(1시간) - (클릭 텀 * 200번) ] 대기
                             return # 반환
                         continue # 다음 반복문으로 이동
 
-                    if not self.interruptible_sleep(7): # 7초 대기
+                    if not self.interruptible_sleep(click_term - 2): # 클릭 텀 - 2초 대기
+                        count = 0 # 카운트 초기화
                         return # 반환
                     continue # 다음 반복문으로 이동
 
-                elif box is None: # 사이즈 박스 요소가 없을 경우
+                else: # 팝업 요소의 클래스에 'show'가 포함되어 있지 않을 경우 (페이지가 넘어간 경우)
+                    
                     try: # 예외 처리
                         WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body'))) # 로딩 완료 대기
 
@@ -228,43 +238,25 @@ class MacroWorker(QObject):
                     except: # 그 외의 예외 발생 시
                         if done == True: # 완료 여부가 True일 경우
                             return # 반환
-                        self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 중 오류 발생. 다시 시도합니다') # 보증금 결제 오류 메시지 출력
-                        browser.refresh() # 브라우저 새로고침
-                        if not self.interruptible_sleep(7): # 7초 대기
+                        self.update_log(f'[{time.strftime("%H:%M:%S")}] 오류 발생. 다시 시도합니다') # 보증금 결제 오류 메시지 출력
+                        count = 0 # 카운트 
+
+                        if inventory_opened == True: # 인벤토리 페이지가 열려있을 경우
+                            inventory_opened = False # 인벤토리 페이지 열림 여부 설정
+                            browser.refresh() # 브라우저 새로고침
+
+                        if not self.interruptible_sleep(click_term - 2): # 클릭 텀 - 2초 대기
                             return # 반환
                         continue # 다음 반복문으로 이동
             
             except: # 그 외의 예외 발생 시
-                if 'https://kream.co.kr/login' in browser.current_url: # 현재 URL이 로그인 페이지일 경우
+                if 'login' in browser.current_url: # 현재 URL이 로그인 페이지일 경우
                     self.relogin(email, pw) # 다시 로그인
                     count = 0  # Reset count
 
-                if not self.interruptible_sleep(3): # 3초 대기
+                if not self.interruptible_sleep(2): # 2초 대기
                     return # 반환
                 continue # 다음 반복문으로 이동
-
-
-    def payment(self):
-        global done # 완료 여부 전역 변수 설정
-
-        purchase_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, '//button[@class="display_button large dark_filled active block bold"]'))) # 구매 버튼 요소 찾기
-        purchase_button.click() # 구매 버튼 클릭
-
-        for i in range(1, 4):
-            WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, f'//div[@class="title-description-checkbox line"][{i}]'))).click() # 체크박스 요소 클릭
-
-        purchase_button2 = WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, '//div[@class="layer_container"]//button[@class="display_button large dark_filled active block bold"]'))) # 구매 버튼 요소 찾기
-        purchase_button2.click() # 구매 버튼 클릭
-
-        deadline = datetime.now() # 현재 시간 설정
-        deadline += timedelta(days=3 if deadline.weekday() in {5, 6} else 2) # 토요일, 일요일일 경우 3일, 그 외의 경우 2일 추가
-        self.update_log(f'<br><b>[{time.strftime("%H:%M:%S")}] 보관판매 신청 성공!</b><br>', html=True) # 보관판매 신청 성공 메시지 출력
-        self.update_log(f'<b><i>{deadline.strftime("%Y년 %m월 %d일 (%a요일) %H시 %M분").replace("Mon", "월").replace("Tue", "화").replace("Wed", "수").replace("Thu", "목").replace("Fri", "금").replace("Sat", "토").replace("Sun", "일")}</i>까지 송장번호를 입력해야 합니다.</b>', html=True) # 송장번호 입력 마감 시간 메시지 출력
-        done = True # 완료 여부 설정
-        self.interruptible_sleep(3600) # 1시간 대기
-
-        sys.exit(f'[{time.strftime('%H:%M:%S')}] 보관판매 신청 성공! {deadline.strftime("%Y년 %m월 %d일 (%a요일) %H시 %M분").replace("Mon", "월").replace("Tue", "화").replace("Wed", "수").replace("Thu", "목").replace("Fri", "금").replace("Sat", "토").replace("Sun", "일")}까지 송장번호를 입력해야 합니다.') # 송장번호 입력 마감 시간 메시지 출력
-    
 
     def relogin(self, email, pw):
         self.update_log(f'<br><b>[{time.strftime("%H:%M:%S")}] 로그인 세션이 만료되었습니다. 다시 로그인합니다.</b><br>', html=True) # 로그인 세션 만료 메시지 출력
@@ -276,10 +268,10 @@ class MacroWorker(QObject):
         email_input.send_keys(email) # 이메일 입력 요소에 이메일 입력
         password_input.clear() # 비밀번호 입력 요소 초기화
         password_input.send_keys(pw) # 비밀번호 입력 요소에 비밀번호 입력
+
         WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[type="submit"]'))).click() # 로그인 버튼 클릭
         WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body'))) # 로그인 완료 대기
         self.update_log(f'[{time.strftime("%H:%M:%S")}] 크림에 {email} 계정으로 로그인되었습니다.') # 로그인 완료 메시지 출력
-
 
 class App(QWidget): # App 클래스 정의
     def __init__(self): # 초기화 함수 정의
@@ -288,7 +280,6 @@ class App(QWidget): # App 클래스 정의
         self.i = 0 # 검색 결과 인덱스 초기화
         self.font_size = 12 # 폰트 크기 초기화
         self.initUI() # UI 초기화 함수 실행
-
 
     def initUI(self): # UI 초기화 함수 정의
         global size_options, left_button_clicked, right_button_clicked # 사이즈 옵션 전역 변수 설정
@@ -331,25 +322,6 @@ class App(QWidget): # App 클래스 정의
 
         horizontal_layout = QHBoxLayout() # 수평 레이아웃 객체 생성
 
-        self.search_input = QLineEdit(self) # 검색 입력 위젯 생성
-        self.search_input.setPlaceholderText('제품명 입력') # 검색 입력 위젯에 플레이스홀더 텍스트 설정
-        self.search_input.returnPressed.connect(self.search_product) # 검색 입력 위젯에서 엔터 키를 누르면 제품 검색 함수 실행
-        horizontal_layout.addWidget(self.search_input, 3) # 수평 레이아웃에 검색 입력 위젯 추가
-
-        self.search_button = QPushButton('검색', self) # 검색 버튼 생성
-        self.search_button.clicked.connect(self.search_product) # 검색 버튼 클릭 시 제품 검색 함수 실행
-        horizontal_layout.addWidget(self.search_button, 1) # 수평 레이아웃에 검색 버튼 추가
-
-        self.search_details_button = QPushButton('제품 상세정보', self) # 제품 상세정보 버튼 생성
-        self.search_details_button.setEnabled(False) # 제품 상세정보 버튼 비활성화
-        self.search_details_button.clicked.connect(self.product_details) # 제품 상세정보 버튼 클릭 시 제품 상세정보 함수 실행
-        horizontal_layout.addWidget(self.search_details_button, 1) # 수평 레이아웃에 제품 상세정보 버튼 추가
-
-        horizontal_layout.addSpacing(20)  # Add horizontal gap
-        screen = QApplication.primaryScreen() # 주 화면 객체 생성
-        if sys.platform == 'win32' and screen.logicalDotsPerInch() > 96: # Windows 플랫폼이고 DPI가 96보다 클 경우
-            horizontal_layout.addSpacing(20)  # Add horizontal gap
-
         self.email_input = QLineEdit(self) # 이메일 입력 위젯 생성
         self.email_input.setPlaceholderText('크림 계정 이메일 입력') # 이메일 입력 위젯에 플레이스홀더 텍스트 설정
         self.email_input.setClearButtonEnabled(True) # 이메일 입력 위젯에 지우기 버튼 활성화
@@ -367,6 +339,25 @@ class App(QWidget): # App 클래스 정의
         horizontal_layout.addWidget(self.login_button, 1) # 수평 레이아웃에 로그인 버튼 추가
 
         horizontal_layout.addSpacing(20)  # Add horizontal gap
+        if sys.platform == 'win32' and screen.logicalDotsPerInch() > 96: # Windows 플랫폼이고 DPI가 96보다 클 경우
+            horizontal_layout.addSpacing(20)  # Add horizontal gap
+
+        self.search_input = QLineEdit(self) # 검색 입력 위젯 생성
+        self.search_input.setPlaceholderText('제품명 입력') # 검색 입력 위젯에 플레이스홀더 텍스트 설정
+        self.search_input.returnPressed.connect(self.search_product) # 검색 입력 위젯에서 엔터 키를 누르면 제품 검색 함수 실행
+        horizontal_layout.addWidget(self.search_input, 3) # 수평 레이아웃에 검색 입력 위젯 추가
+
+        self.search_button = QPushButton('검색', self) # 검색 버튼 생성
+        self.search_button.clicked.connect(self.search_product) # 검색 버튼 클릭 시 제품 검색 함수 실행
+        horizontal_layout.addWidget(self.search_button, 1) # 수평 레이아웃에 검색 버튼 추가
+
+        self.search_details_button = QPushButton('제품 상세정보', self) # 제품 상세정보 버튼 생성
+        self.search_details_button.setEnabled(False) # 제품 상세정보 버튼 비활성화
+        self.search_details_button.clicked.connect(self.product_details) # 제품 상세정보 버튼 클릭 시 제품 상세정보 함수 실행
+        horizontal_layout.addWidget(self.search_details_button, 1) # 수평 레이아웃에 제품 상세정보 버튼 추가
+
+        horizontal_layout.addSpacing(20)  # Add horizontal gap
+        screen = QApplication.primaryScreen() # 주 화면 객체 생성
         if sys.platform == 'win32' and screen.logicalDotsPerInch() > 96: # Windows 플랫폼이고 DPI가 96보다 클 경우
             horizontal_layout.addSpacing(20)  # Add horizontal gap
 
@@ -449,35 +440,31 @@ class App(QWidget): # App 클래스 정의
     def search_product(self, direction=0): # 제품 검색 함수 정의
         global product_id, is_brand, keyword, left_button_clicked, right_button_clicked
 
-        new_keyword = self.search_input.text() # 새로운 검색어 설정
         self.log_output.clear() # 로그 출력 위젯 초기화
-
         search_results = None # 검색 결과 초기화
 
-        search_url = f'https://kream.co.kr/search?keyword={new_keyword}&tab=products&delivery_method=quick_delivery&sort=popular_score' # 검색 URL 설정
+        new_keyword = self.search_input.text() # 새로운 검색어 설정
+        keyword_encoded = urllib.parse.quote(new_keyword) # 검색어 인코딩
+        search_url = f'https://kream.co.kr/search?keyword={keyword_encoded}&tab=products&sort=popular_score' # 검색 URL 설정
+
         if new_keyword != keyword: # 새로운 검색어가 이전 검색어와 다를 경우
             self.i = 0 # i를 0으로 설정
             keyword = new_keyword # 검색어 설정
-        
+
         if browser.current_url != search_url: # 현재 URL이 크림 검색 페이지가 아닐 경우
             browser.get(search_url) # 크림 검색 페이지로 이동
 
-        try:
-            WebDriverWait(browser, 20).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'body'))) # 로딩 완료 대기
+            try:
+                WebDriverWait(browser, 20).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'body'))) # 로딩 완료 대기
 
-        except TimeoutException : # 시간 초과 발생 시
-            self.update_log('검색 결과가 없습니다. (Timeout)') # 검색 결과 없음 메시지 출력
-            return
+            except TimeoutException : # 시간 초과 발생 시
+                QMessageBox.warning(self, '시간 초과', '페이지를 로딩할 수 없습니다.') # 시간 초과 메시지 출력
+                return
         
-        try:
-            search_results = WebDriverWait(browser, 20).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="search_result_item product"]'))) # 검색 결과 요소 찾기
-
-        except NoSuchElementException: # 요소 없음 예외 발생 시
+        search_results = browser.find_elements(By.CSS_SELECTOR, 'div[class="search_result_item product"]') # 검색 결과 요소 찾기
+        
+        if not search_results:
             QMessageBox.warning(self, '검색 결과 없음', '검색 결과가 없습니다.')
-            return
-
-        except Exception as e: # 그 외의 예외 발생 시
-            self.update_log(f'에러발생: {str(e)}')
             return
 
         self.left_button.setEnabled(False) # 왼쪽 버튼 비활성화
@@ -553,7 +540,7 @@ class App(QWidget): # App 클래스 정의
             
             try:
                 result.find_element(By.CSS_SELECTOR, 'svg[class="ico-brand-official icon sprite-icons"]') # 브랜드배송 요소 찾기
-                self.update_log(f'<br><b><i><div style="text-align: center;">보관판매가 불가능한 브랜드배송 제품입니다. 다시 검색해주세요.<br><br></div></i></b>', html=True) # 브랜드배송 제품 메시지 출력
+                self.update_log(f'<br><b><i><div style="text-align: center;">보관판매가 불가능한 브랜드배송 제품입니다.<br></div></i></b>', html=True) # 브랜드배송 제품 메시지 출력
                 is_brand = True # 브랜드배송 여부 설정
                 self.search_details_button.setEnabled(False) # 제품 상세정보 버튼 비활성화
                 return
@@ -565,11 +552,29 @@ class App(QWidget): # App 클래스 정의
             self.search_button.setEnabled(False) # 검색 버튼 비활성화
 
             try:
+<<<<<<< HEAD
+
+                if '빠른배송' in result.find_element(By.CSS_SELECTOR, 'div[class="tags"]').text:
+=======
+>>>>>>> af6e56c777b88017b285ee53b4f3a7c4971a328c
 
                 if '빠른배송' in result.find_element(By.CSS_SELECTOR, 'div[class="tags"]').text:
 
-            if is_logged_in == True:
-                self.start_button.setEnabled(True)
+                    if is_logged_in == True:
+                        self.start_button.setEnabled(True)
+
+                    else:
+                        self.start_button.setEnabled(False)
+
+                    return
+                
+                else:
+                    self.update_log('<br><div style="text-align: center;"><b>제품 상세정보</b> 버튼을 눌러 보관판매 여부를 확인하세요.<br></div>', html=True)
+                    return
+                
+            except NoSuchElementException:
+                QMessageBox.warning(self, '요소 없음', '제품 상세정보 버튼을 눌러 보관판매 여부를 확인하세요.')
+                return
 
         except NoSuchElementException: # 요소 없음 예외 발생 시
             QMessageBox.warning(self, '요소 없음', '검색 결과가 없습니다.')
@@ -586,19 +591,52 @@ class App(QWidget): # App 클래스 정의
 
     def product_details(self):
         browser.get('https://kream.co.kr/products/' + product_id)
-        WebDriverWait(browser, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body'))) # 로딩 완료 대기
-        details = browser.find_elements(By.XPATH, '//div[@class="detail-box"]/div[@class="product_info"]')
-        colors = browser.find_element(By.XPATH, '//div[@class="detail-box"]/div[@class="product_info color-target"]').text
-        self.update_log(f'발매가: <b>{details[0].text}</b>', html=True)
+
+        try:
+            WebDriverWait(browser, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body'))) # 로딩 완료 대기
+            details = browser.find_elements(By.XPATH, '//div[@class="detail-box"]/div[@class="product_info"]')
+            colors = browser.find_element(By.XPATH, '//div[@class="detail-box"]/div[@class="product_info color-target"]').text
+
+        except TimeoutException:
+            browser.refresh()
+            return
+        
+        except NoSuchElementException:
+            browser.refresh()
+            return
+        
+        self.update_log(f'<br>발매가: <b>{details[0].text}</b>', html=True)
         self.update_log(f'모델번호: <b>{details[1].text}</b>', html=True)
         self.update_log(f'출시일: <b>{details[2].text}</b>', html=True)
         self.update_log(f'대표색상: <b>{colors}</b>', html=True)
+
+        try:
+            delivery_way = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="delivery_way_wrap"]'))).text
+
+            if '창고보관' in delivery_way:
+                self.update_log('<br><b><i><div style="text-align: center;">보관판매 가능한 제품입니다.<br></div></i></b>', html=True)
+                if is_logged_in == True:
+                    self.start_button.setEnabled(True)
+                
+                else:
+                    self.update_log('<b><i><div style="text-align: center;">크림 계정으로 로그인해주세요.<br><br></div></i></b>', html=True)
+                    self.start_button.setEnabled(False)
+            
+            else:
+                self.update_log('<br><b><i><div style="text-align: center;">보관판매가 불가능한 제품입니다.<br></div></i></b>', html=True)
+                self.start_button.setEnabled(False)
+
+        except TimeoutException:
+            self.update_log('<br><b><i><div style="text-align: center;">보관판매가 불가능한 제품입니다.<br></div></i></b>', html=True)
+            self.start_button.setEnabled(False)
 
         self.search_button.setEnabled(True)
         self.search_details_button = QPushButton('체결 거래정보', self)
         self.search_details_button.clicked.connect(self.product_sales)
         self.left_button.setEnabled(False)
         self.right_button.setEnabled(False)
+
+
     
     def product_sales(self):
         WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[class="btn outlinegrey full medium"]'))).click()
@@ -643,7 +681,7 @@ class App(QWidget): # App 클래스 정의
         has_valid_length = 8 <= len(password) <= 16 # 비밀번호 길이가 8 이상 16 이하인지 확인
         has_letter = re.search(r'[A-Za-z]', password) # 영문자가 포함되어 있는지 확인
         has_number = re.search(r'[0-9]', password) # 숫자가 포함되어 있는지 확인
-        has_special = re.search(r'[!@#$%^&*(),.?":{}|<>+]', password) # 특수문자가 포함되어 있는지 확인
+        has_special = re.search(r'[!@#$%^&*(),.?":{}|<>+-]', password) # 특수문자가 포함되어 있는지 확인
         return all([has_valid_length, has_letter, has_number, has_special]) # 모든 조건이 참인지 반환
 
 
@@ -707,26 +745,32 @@ class App(QWidget): # App 클래스 정의
         self.update_log(f'[{time.strftime("%H:%M:%S")}] 크림에 {email} 계정으로 로그인되었습니다.') # 로그인 완료 메시지 출력
 
     def start_macro(self):
-        global sel1, sel2, inventorypage # 선택된 사이즈와 수량, 인벤토리 페이지 URL 전역 변수 설정
+        global sel1, sel2, inventorypage, click_term # 선택된 사이즈와 수량, 인벤토리 페이지 URL 전역 변수 설정
 
         self.left_button.setEnabled(False) # 왼쪽 버튼 비활성화
         self.right_button.setEnabled(False) # 오른쪽 버튼 비활성화
         self.search_details_button.setEnabled(False) # 제품 상세정보 버튼 비활성화
 
         inventorypage = 'https://kream.co.kr/inventory/' + str(product_id) # 인벤토리 페이지 URL 설정
-        browser.get(inventorypage)
+        browser.get(inventorypage) # 인벤토리 페이지로 이동
+
+        if 'login' in browser.current_url: # 현재 URL이 로그인 페이지일 경우
+            self.relogin(self.email_input.text(), self.pw_input.text()) # 다시 로그인 함수 실행
+            return
+
         size_options = [] # 사이즈 옵션 리스트 초기화
 
         try:
             WebDriverWait(browser, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.inventory_size_list')))
         
         except TimeoutException:
-            QMessageBox.warning(self, '시간초과', '보관판매가 불가능한 제품입니다.\n다시 검색해주세요.')
+            QMessageBox.warning(self, '시간초과', '페이지 로딩에 실패했습니다.')
             return
         
         except: # 그 외의 경우
             self.update_log('인벤토리 페이지 로딩 실패')
-            if 'https://kream.co.kr/login' in browser.current_url: # 로그인 페이지로 이동할 경우
+
+            if 'login' in browser.current_url: # 로그인 페이지로 이동할 경우
                 self.relogin(self.email_input.text(), self.pw_input.text())
             return
 
@@ -736,6 +780,7 @@ class App(QWidget): # App 클래스 정의
 
             for i in range(self.layout().count()):
                 widget = self.layout().itemAt(i).widget()
+                
                 if isinstance(widget, QPushButton) and widget.text().startswith("사이즈"):
                     widget.deleteLater()
 
@@ -762,6 +807,14 @@ class App(QWidget): # App 클래스 정의
         layout.addWidget(qty_label)
         layout.addWidget(qty_spin)
 
+        # Click term dropdown
+        click_term_label = QLabel('클릭 텀 (초):')
+        click_term_combo = QComboBox()
+        click_term_combo.addItems([str(i) for i in range(8, 19)])
+        click_term_combo.setCurrentIndex(click_term_combo.count() - 1)
+        layout.addWidget(click_term_label)
+        layout.addWidget(click_term_combo)
+
         # Dialog buttons
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
@@ -777,8 +830,10 @@ class App(QWidget): # App 클래스 정의
         if dialog.exec_() == QDialog.Accepted:
             sel1 = size_combo.currentIndex() + 1
             sel2 = qty_spin.value()
-            self.update_log(f'선택된 사이즈: {size_options[sel1-1]}')
+            click_term = int(click_term_combo.currentText())
+            self.update_log(f'\n\n선택된 사이즈: {size_options[sel1-1]}')
             self.update_log(f'선택된 수량: {sel2}')
+            self.update_log(f'선택된 클릭 텀: {click_term}초')
             
             self.search_input.setEnabled(False)
             self.search_button.setEnabled(False)
