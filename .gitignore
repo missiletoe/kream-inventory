@@ -1,4 +1,11 @@
 .DS_Store
+.vscode
+build
+dist
 setup.py
+<<<<<<< HEAD
 inventory.ipynb
 practice
+=======
+inventory.spec
+>>>>>>> af6e56c777b88017b285ee53b4f3a7c4971a328c
