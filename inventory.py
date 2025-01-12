@@ -189,15 +189,15 @@ class MacroWorker(QObject):
                         if browser.find_element(By.CSS_SELECTOR, 'span[class="title_txt"]').text == '신청내역': # 신청내역 페이지일 경우
                             inventory_opened = True # 인벤토리 페이지 열림 여부 설정
 
-                        self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 진행 중...') # 보증금 결제 중 메시지 출력
-                        purchase_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, '//button[@class="display_button large dark_filled active block bold"]'))) # 구매 버튼 요소 찾기
-                        purchase_button.click() # 구매 버튼 클릭
+                        self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 진행 중...')
+                        purchase_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, '//button[@class="display_button large dark_filled active block bold"]')))
+                        purchase_button.click() # 보증금 결제하기 버튼 클릭
 
-                        for i in range(1, 4):
-                            WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, f'//div[@class="title-description-checkbox line"][{i}]'))).click() # 체크박스 요소 클릭
+                        for i in range(1, 4): # 체크박스 요소 클릭을 위한 반복문
+                            WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, f'//div[@class="title-description-checkbox line"][{i}]'))).click()
 
-                        purchase_button2 = WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, '//div[@class="layer_container"]//button[@class="display_button large dark_filled active block bold"]'))) # 구매 버튼 요소 찾기
-                        purchase_button2.click() # 구매 버튼 클릭
+                        purchase_button2 = WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, '//div[@class="layer_container"]//button[@class="display_button large dark_filled active block bold"]')))
+                        purchase_button2.click() # 최종 보증금 결제하기 버튼 클릭
 
                         try:
                             service_error = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="info_txt"]'))).text # 이상한 페이지 요소 찾기
@@ -210,10 +210,8 @@ class MacroWorker(QObject):
                         except:
                             pass
 
-                        popup = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[id="toast"]'))) # 팝업 요소 찾기
-                        time.sleep(2) # 2초 대기
-
-                        if 'show' in popup.get_attribute('class'): # 팝업 요소의 클래스에 'show'가 포함되어 있을 경우
+                        try:
+                            popup = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="toast sm show"]')))
                             self.update_log(f'{popup.text}') # 팝업 메시지 출력
                             self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 실패. 다시 시도합니다.') # 보증금 결제 실패 메시지 출력
                             inventory_opened = False # 인벤토리 페이지 열림 여부 설정
@@ -222,12 +220,15 @@ class MacroWorker(QObject):
                             if not self.interruptible_sleep(click_term - 2): # 클릭 텀 - 2초 대기
                                 return # 반환
                             continue # 다음 반복문으로 이동
-                                
-                        else:
-                            deadline = datetime.now() # 현재 시간 설정
-                            deadline += timedelta(days=3 if deadline.weekday() in {5, 6} else 2) # 토요일, 일요일일 경우 3일, 그 외의 경우 2일 추가
+                                    
+                        
+                        except TimeoutException:
+                            self.update_log(f'[{time.strftime("%H:%M:%S")}] 팝업 요소를 찾을 수 없습니다. 다시 시도합니다.')
+                            browser.refresh()
+                            return
+
+                        except:
                             self.update_log(f'<br><b>[{time.strftime("%H:%M:%S")}] 보관판매 신청 성공!</b><br>', html=True) # 보관판매 신청 성공 메시지 출력
-                            self.update_log(f'<b>{deadline.strftime("%Y년 %m월 %d일 (%a요일) %H시 %M분").replace("Mon", "월").replace("Tue", "화").replace("Wed", "수").replace("Thu", "목").replace("Fri", "금").replace("Sat", "토").replace("Sun", "일")}까지 송장번호를 입력해야 합니다.</b>', html=True) # 송장번호 입력 마감 시간 메시지 출력
                             done = True # 완료 여부 설정
                             return # 반환
 
