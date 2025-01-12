@@ -1,5 +1,5 @@
 ### 크림 보관판매 매크로 ###
-### 2024.12.15      ###
+### 2025.01.13      ###
 ### by. missiletoe  ###
 
 from PyQt5.QtCore import QThread, Qt, pyqtSlot, QObject, pyqtSignal  # PyQt5의 코어 모듈에서 필요한 클래스들을 가져옴
@@ -220,12 +220,6 @@ class MacroWorker(QObject):
                             if not self.interruptible_sleep(click_term - 2): # 클릭 텀 - 2초 대기
                                 return # 반환
                             continue # 다음 반복문으로 이동
-                                    
-                        
-                        except TimeoutException:
-                            self.update_log(f'[{time.strftime("%H:%M:%S")}] 팝업 요소를 찾을 수 없습니다. 다시 시도합니다.')
-                            browser.refresh()
-                            return
 
                         except:
                             self.update_log(f'<br><b>[{time.strftime("%H:%M:%S")}] 보관판매 신청 성공!</b><br>', html=True) # 보관판매 신청 성공 메시지 출력
@@ -552,11 +546,6 @@ class App(QWidget): # App 클래스 정의
             self.search_button.setEnabled(False) # 검색 버튼 비활성화
 
             try:
-<<<<<<< HEAD
-
-                if '빠른배송' in result.find_element(By.CSS_SELECTOR, 'div[class="tags"]').text:
-=======
->>>>>>> af6e56c777b88017b285ee53b4f3a7c4971a328c
 
                 if '빠른배송' in result.find_element(By.CSS_SELECTOR, 'div[class="tags"]').text:
 
