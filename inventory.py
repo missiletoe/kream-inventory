@@ -174,8 +174,53 @@ class MacroWorker(QObject):
 
                 elif box is None: # 사이즈 박스 요소가 없을 경우
                     try: # 예외 처리
-                        self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 진행 중...') # 보증금 결제 중 메시지 출력
-                        self.payment() # 결제 함수 실행
+                        WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body'))) # 로딩 완료 대기
+
+                        if browser.find_element(By.CSS_SELECTOR, 'span[class="title_txt"]').text == '신청내역': # 신청내역 페이지일 경우
+                            inventory_opened = True # 인벤토리 페이지 열림 여부 설정
+
+                        self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 진행 중...')
+                        purchase_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, '//button[@class="display_button large dark_filled active block bold"]')))
+                        purchase_button.click() # 보증금 결제하기 버튼 클릭
+
+                        for i in range(1, 4): # 체크박스 요소 클릭을 위한 반복문
+                            WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.XPATH, f'//div[@class="title-description-checkbox line"][{i}]'))).click()
+
+                        purchase_button2 = WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, '//div[@class="layer_container"]//button[@class="display_button large dark_filled active block bold"]')))
+                        purchase_button2.click() # 최종 보증금 결제하기 버튼 클릭
+
+                        try:
+                            service_error = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="info_txt"]'))).text # 이상한 페이지 요소 찾기
+                            if service_error == '일시적인 서비스 장애 입니다.':
+                                self.update_log(f'[{time.strftime("%H:%M:%S")}] 일시적인 서비스 장애입니다. 다시 시도합니다.')
+                                count = 0
+                                browser.refresh()
+                                return
+                                
+                        except:
+                            pass
+
+                        try:
+                            popup = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="toast sm show"]')))
+                            self.update_log(f'{popup.text}') # 팝업 메시지 출력
+                            self.update_log(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 실패. 다시 시도합니다.') # 보증금 결제 실패 메시지 출력
+                            inventory_opened = False # 인벤토리 페이지 열림 여부 설정
+                            browser.refresh() # 브라우저 새로고침
+                            count = 0 # 카운트 초기화
+                            if not self.interruptible_sleep(click_term - 2): # 클릭 텀 - 2초 대기
+                                return # 반환
+                            continue # 다음 반복문으로 이동
+                                    
+                        
+                        except TimeoutException:
+                            self.update_log(f'[{time.strftime("%H:%M:%S")}] 팝업 요소를 찾을 수 없습니다. 다시 시도합니다.')
+                            browser.refresh()
+                            return
+
+                        except:
+                            self.update_log(f'<br><b>[{time.strftime("%H:%M:%S")}] 보관판매 신청 성공!</b><br>', html=True) # 보관판매 신청 성공 메시지 출력
+                            done = True # 완료 여부 설정
+                            return # 반환
 
                     except KeyboardInterrupt: # 사용자가 Ctrl+C를 눌렀을 경우
                         sys.exit(f'[{time.strftime("%H:%M:%S")}] 사용자에 의해 종료되었습니다.') # 종료 메시지 출력
@@ -516,8 +561,12 @@ class App(QWidget): # App 클래스 정의
             except NoSuchElementException: # 요소 없음 예외 발생 시
                 pass
 
-            self.search_details_button.setEnabled(True)
+            self.search_details_button.setEnabled(True) # 제품 상세정보 버튼 활성화
+            self.search_button.setEnabled(False) # 검색 버튼 비활성화
 
+            try:
+
+                if '빠른배송' in result.find_element(By.CSS_SELECTOR, 'div[class="tags"]').text:
 
             if is_logged_in == True:
                 self.start_button.setEnabled(True)
