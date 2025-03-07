@@ -4,6 +4,7 @@ build
 dist
 setup.py
 inventory.ipynb
+<<<<<<< HEAD
 inventroy.spec
 practice
 practice/*
@@ -274,3 +275,7 @@ fabric.properties
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
+=======
+inventory.spec
+practice
+>>>>>>> 551ed79784bc2e6568dd81916d067eaeccad06c0
