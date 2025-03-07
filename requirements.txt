@@ -1,13 +1,20 @@
-# PyQt5 and Selenium for GUI and web automation
-PyQt5==5.15.11
-selenium==4.27.1
+# PyQt6 for GUI (최신 버전, Qt6 기반)
+PyQt6==6.7.0
 
-# Requests and chromedriver for HTTP requests and browser automation
-requests==2.28.1
+# Selenium for web automation (최신 버전)
+selenium==4.15.2
+
+# Requests for HTTP requests (최신 버전)
+requests==2.31.0
+
+# Chromedriver auto-installer
 chromedriver-autoinstaller==0.6.4
+webdriver-manager==4.0.1
 
-# Pandas for data manipulation
-pandas==2.2.3
+# dotenv for environment variables
+python-dotenv==1.0.1
 
-# AppKit for macOS GUI automation
-appkit==0.1.0; sys.platform == 'darwin'
+# pytest for testing
+pytest==8.3.1
+pytest-mock==3.14.0
+pytest-qt==4.4.0
