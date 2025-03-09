@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# 스크립트가 있는 디렉토리로 이동
+cd "$(dirname "$0")"
+
+# 현재 디렉토리 출력 (디버깅용)
+echo "Current Directory: $(pwd)"
+
 # 1️⃣ Python이 설치되어 있는지 확인
 if ! command -v python3 &>/dev/null; then
     echo "[INFO] Python이 설치되지 않았습니다. 자동 설치 진행..."
