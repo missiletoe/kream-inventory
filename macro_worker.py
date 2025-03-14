@@ -4,7 +4,7 @@ from PyQt6.QtCore import QThread, Qt
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
 from datetime import datetime, timedelta
 import re
@@ -64,11 +64,14 @@ class MacroWorker(QObject):
                 count += 1
                 self.log_message.emit(f'[{time.strftime("%H:%M:%S")}] {count}회 시도')
 
-                if '안쪽 라벨 사이즈' in self.browser.find_element(By.CSS_SELECTOR, 'div.layer_container').text:
-                    example_boxes = WebDriverWait(self.browser, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.example_box.label')))
-                    for label in example_boxes:
-                        label.click()
-                    WebDriverWait(self.browser, 3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.btn.solid.full.large'))).click()
+                try:
+                    if '안쪽 라벨 사이즈' in self.browser.find_element(By.CSS_SELECTOR, 'div.layer_container').text:
+                        example_boxes = WebDriverWait(self.browser, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.example_box.label')))
+                        for label in example_boxes:
+                            label.click()
+                        WebDriverWait(self.browser, 3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.btn.solid.full.large'))).click()
+                except NoSuchElementException:
+                    pass
 
                 popup = WebDriverWait(self.browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.toast')))
                 time.sleep(1)
