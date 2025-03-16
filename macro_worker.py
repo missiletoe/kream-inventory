@@ -86,7 +86,13 @@ class MacroWorker(QObject):
                     elif popup.text == '상대방의 입찰 삭제, 카드사 응답실패 등 예상치 못한 오류로 인해 계속 진행할 수 없습니다. 이전 단계로 돌아갑니다.' or popup.text == '인터넷, 와이파이, 모바일 데이터 혹은 비행기모드 설정을 확인해 주시기 바랍니다.':
                         block_time = datetime.now() + timedelta(seconds=(3600 - self.click_term * 200))
                         self.log_message.emit(f'[{time.strftime("%H:%M:%S")} ~ {block_time.strftime("%H:%M:%S")}] 매크로 중단')
-                        time.sleep(3600 - self.click_term * 200) # [ 3600초(1시간) - (클릭 텀 * 200번) ] 대기
+                        
+                        # [ 3600초(1시간) - (클릭 텀 * 200번) ] 대기
+                        time.sleep(3600 - self.click_term * 200)
+                        
+                        self.log_message.emit(f'[{time.strftime("%H:%M:%S")}] 매크로 재시작')
+                        count = 0
+                        self.browser.refresh()
                         return
                 
                 # 다음 페이지로 이동되었거나, 팝업이 사라졌거나, 로그인이 풀린 경우
