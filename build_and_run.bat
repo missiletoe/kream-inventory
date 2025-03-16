@@ -18,17 +18,17 @@ if %errorlevel% neq 0 (
 )
 
 :: REM 가상환경(venv) 생성
-if not exist "venv" (
+if not exist ".venv" (
     echo [INFO] 가상환경^(venv^) 생성 중...
     python -m venv .venv
 )
 
 :: REM 가상환경 활성화
-call venv\Scripts\activate
+call .venv\Scripts\activate
 
 :: REM QT 플러그인 경로 설정
-set QT_QPA_PLATFORM_PLUGIN_PATH=venv\Lib\site-packages\PyQt6\Qt6\plugins\platforms
-set QT_PLUGIN_PATH=venv\Lib\site-packages\PyQt6\Qt6\plugins
+set QT_QPA_PLATFORM_PLUGIN_PATH=.venv\Lib\site-packages\PyQt6\Qt6\plugins\platforms
+set QT_PLUGIN_PATH=.venv\Lib\site-packages\PyQt6\Qt6\plugins
 
 :: REM pip 업그레이드
 (
