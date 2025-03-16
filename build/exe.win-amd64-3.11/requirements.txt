@@ -1,0 +1,20 @@
+# PyQt6 for GUI (최신 버전, Qt6 기반)
+PyQt6==6.7.0
+
+# Selenium for web automation (최신 버전)
+selenium==4.15.2
+
+# Requests for HTTP requests (최신 버전)
+requests==2.31.0
+
+# Chromedriver auto-installer
+chromedriver-autoinstaller==0.6.4
+webdriver-manager==4.0.1
+
+# dotenv for environment variables
+python-dotenv==1.0.1
+
+# pytest for testing
+pytest==8.3.1
+pytest-mock==3.14.0
+pytest-qt==4.4.0
