@@ -88,27 +88,51 @@ class MacroWorker(QObject):
                         self.log_message.emit(f'[{time.strftime("%H:%M:%S")} ~ {block_time.strftime("%H:%M:%S")}] 매크로 중단')
                         time.sleep(3600 - self.click_term * 200) # [ 3600초(1시간) - (클릭 텀 * 200번) ] 대기
                         return
-                    
-                else: # 다음 페이지로 이동되었거나, 팝업이 사라졌거나, 로그인이 풀린 경우
+                
+                # 다음 페이지로 이동되었거나, 팝업이 사라졌거나, 로그인이 풀린 경우
+                else:
                     
                     try:
                         WebDriverWait(self.browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body')))
 
+                        # 인벤토리 페이지 열림 여부 설정
                         if self.browser.find_element(By.CSS_SELECTOR, 'span.title_txt').text == '신청내역':
-                            inventory_opened = True # 인벤토리 페이지 열림 여부 설정
+                            inventory_opened = True
 
+                        # 보증금 결제하기 버튼 클릭
                         self.log_message.emit(f'[{time.strftime("%H:%M:%S")}] 보증금 결제 진행 중...')
-                        purchase_button = WebDriverWait(self.browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'button.display_button.large.dark_filled.active.block bold')))
-                        purchase_button.click() # 보증금 결제하기 버튼 클릭
+                        purchase_button = WebDriverWait(self.browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'button.display_button')))
+                        if purchase_button.get_attribute('class') == 'display_button large dark_filled active block bold':
+                            purchase_button.click()
+                        else:
+                            continue
 
-                        for i in range(1, 4): # 체크박스 요소 클릭을 위한 반복문
-                            WebDriverWait(self.browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, f'div.title-description-checkbox.line:nth-child[{i}]'))).click()
+                        # 모달 창이 나타날 때까지 대기
+                        modal_container = WebDriverWait(self.browser, 10).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, 'div.layer_container'
+                                                            ))
+                        )
+                        if modal_container == None:
+                            continue
 
-                        purchase_button2 = WebDriverWait(self.browser, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.layer_container > button.display_button.large.dark_filled.active.block.bold')))
-                        purchase_button2.click() # 최종 보증금 결제하기 버튼 클릭
+                        # 모달 창의 체크박스 요소 클릭
+                        modal_checkboxes = WebDriverWait(self.browser, 10).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, 'div.section-item.display_item.empty_header'))
+                        )
+                        checkbox_labels = modal_checkboxes.find_elements(By.CSS_SELECTOR, 'div.title-description-checkbox.line label')
+                        for label in checkbox_labels:
+                            label.click()
+
+                        # 최종 보증금 결제하기 버튼 클릭
+                        purchase_button_final = modal_container.find_element(By.CSS_SELECTOR, 'div.layer_bottom div.bottom-button button')
+                        if purchase_button_final.get_attribute('class') == 'display_button large dark_filled active block bold':
+                            purchase_button_final.click()
+                        else:
+                            continue
 
                         try:
-                            service_error = WebDriverWait(self.browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.info_txt'))).text # 이상한 페이지 요소 찾기
+                            # 이상한 페이지 요소 찾기
+                            service_error = WebDriverWait(self.browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.info_txt'))).text
                             if service_error == '일시적인 서비스 장애 입니다.':
                                 self.log_message.emit(f'[{time.strftime("%H:%M:%S")}] 일시적인 서비스 장애입니다. 다시 시도합니다.')
                                 count = 0
@@ -126,23 +150,19 @@ class MacroWorker(QObject):
                             self.browser.refresh()
                             count = 0
                             time.sleep(self.click_term - 1)
-
                         except:
-                            self.log_message.emit(f'[{time.strftime("%H:%M:%S")}] 보관판매 신청 성공!</b><br>')
-                            return
+                            self.log_message.emit(f'[{time.strftime("%H:%M:%S")}] 보관판매 신청 성공!')
+                            self.is_running = False
+                            break
 
-                    except:
-                        if self.is_running == True:
-                            return
-                        self.log_message.emit(f'[{time.strftime("%H:%M:%S")}] 오류 발생. 다시 시도합니다')
+                    except Exception as e:
+                        self.log_message.emit(f'[{time.strftime("%H:%M:%S")}] 오류 발생: {str(e)}. 다시 시도합니다.')
                         count = 0
-
                         if inventory_opened == True:
                             inventory_opened = False
                             self.browser.refresh()
-
                         time.sleep(self.click_term - 1)
-
+                        continue
 
             except Exception as e:
                 self.log_message.emit("매크로 실행 중 오류 발생: " + str(e))

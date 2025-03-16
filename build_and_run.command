@@ -32,6 +32,9 @@ fi
 
 # 3️⃣ 가상 환경 활성화
 source venv/bin/activate
+PYTHON_VER=$(python3 -c "import sys; print('python{}.{}'.format(sys.version_info.major, sys.version_info.minor))")
+export QT_QPA_PLATFORM_PLUGIN_PATH="venv/lib/${PYTHON_VER}/site-packages/PyQt6/Qt6/plugins/platforms"
+export QT_PLUGIN_PATH="venv/lib/${PYTHON_VER}/site-packages/PyQt6/Qt6/plugins"
 
 # 4️⃣ pip 업그레이드
 echo "[INFO] pip 업그레이드 중..."
