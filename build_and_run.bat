@@ -11,7 +11,7 @@ echo Current Directory: %cd%
 :: REM Python 설치 확인
 where python >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Python이 설치되지 않았습니다. https://www.python.org/ftp/python/3.13.2/python-3.13.2-amd64.exe 에서 받은 exe파일로 설치 후 다시 시도해주세요.
+    echo [ERROR] Python이 설치되지 않았습니다. https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe 에서 받은 exe파일로 설치 후 다시 시도해주세요.
     exit /b 1
 ) else (
     echo [INFO] Python이 설치되어 있습니다.
@@ -20,7 +20,7 @@ if %errorlevel% neq 0 (
 :: REM 가상환경(venv) 생성
 if not exist "venv" (
     echo [INFO] 가상환경^(venv^) 생성 중...
-    python -m venv venv
+    python -m venv .venv
 )
 
 :: REM 가상환경 활성화

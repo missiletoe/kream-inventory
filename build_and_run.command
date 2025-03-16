@@ -27,7 +27,7 @@ fi
 # 2️⃣ 가상 환경 생성
 if [ ! -d "venv" ]; then
     echo "[INFO] 가상 환경(venv) 생성 중..."
-    python3 -m venv venv
+    python3 -m venv .venv
 fi
 
 # 3️⃣ 가상 환경 활성화
