@@ -3,6 +3,8 @@
 :: 윈도우에서 배치파일 실행 시 cmd가 순간적으로 떴다가 사라지는 
 :: 1. 한글 깨짐 현상 해결 -> CP949나 UTF-8로 된 인코딩을 UTF-8 with BOM 으로 설정
 :: 2. 개행 오류 현상 해결 -> LF로 된 개행형식을 CRLF 로 설정
+:: 3. git commit & push 할 때 crlf를 자동으로 lf 로 변환해주는 설정값 변경:
+::    git config --global core.autocrlf false
 
 :: utf-8 코드페이지 설정 (한글 깨짐 현상 수정)
 chcp 65001 >nul
