@@ -10,11 +10,3 @@ requests==2.31.0
 # Chromedriver auto-installer
 chromedriver-autoinstaller==0.6.4
 webdriver-manager==4.0.1
-
-# dotenv for environment variables
-python-dotenv==1.0.1
-
-# pytest for testing
-pytest==8.3.1
-pytest-mock==3.14.0
-pytest-qt==4.4.0
