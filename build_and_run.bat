@@ -1,50 +1,73 @@
-@echo off
+﻿@echo off
 
 :: utf-8 코드페이지 설정 (한글 깨짐 현상 수정)
 chcp 65001 >nul
 
-:: REM 스크립트가 있는 디렉토리로 이동
+:: 스크립트가 있는 디렉터리로 이동
 cd /d "%~dp0"
-
 echo Current Directory: %cd%
 
-:: REM Python 설치 확인
+:: 시스템에 Python 설치 여부 확인
 where python >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Python이 설치되지 않았습니다. https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe 에서 받은 exe파일로 설치 후 다시 시도해주세요.
-    exit /b 1
+    echo [INFO] 시스템에 Python이 없습니다. winget으로 설치 중...
+    winget install --id Python.Python.3.9 --silent
+    if %errorlevel% neq 0 (
+         echo [ERROR] Python 설치 실패.
+         exit /b 1
+    ) else (
+         echo [INFO] Python 설치 완료.
+    )
 ) else (
-    echo [INFO] Python이 설치되어 있습니다.
+    echo [INFO] 시스템에 Python이 이미 설치되어 있습니다.
 )
 
-:: REM 가상환경(venv) 생성
+:: 가상환경 생성
 if not exist ".venv" (
-    echo [INFO] 가상환경^(venv^) 생성 중...
+    echo [INFO] 가상환경 생성 중...
     python -m venv .venv
+    if %errorlevel% neq 0 (
+         echo [ERROR] 가상환경 생성 실패.
+         exit /b 1
+    )
+)
+if not exist ".venv" (
+    echo [ERROR] 가상환경이 존재하지 않습니다.
+    exit /b 1
 )
 
-:: REM 가상환경 활성화
+:: 가상환경 활성화
+if not exist ".venv\Scripts\activate" (
+    echo [ERROR] 가상환경 스크립트 없음.
+    exit /b 1
+)
 call .venv\Scripts\activate
+if %errorlevel% neq 0 (
+    echo [ERROR] 가상환경 활성화 실패.
+    exit /b 1
+)
 
-:: REM QT 플러그인 경로 설정
+:: QT 플러그인 경로 설정
 set QT_QPA_PLATFORM_PLUGIN_PATH=.venv\Lib\site-packages\PyQt6\Qt6\plugins\platforms
 set QT_PLUGIN_PATH=.venv\Lib\site-packages\PyQt6\Qt6\plugins
 
-:: REM pip 업그레이드
-(
-    echo [INFO] pip 업그레이드 중...
-    python -m pip install --upgrade pip
+:: Qt 개발 도구(qmake) 설치 여부 확인 및 PATH 추가
+where qmake >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [INFO] qmake가 설치되어 있지 않습니다. pip로 PyQt6 개발 도구 설치 중...
+    winget install --id=Qt.QtDesigner --silent
 )
 
-:: REM requirements.txt 기반 패키지 설치
+:: requirements.txt 기반 패키지 설치
 if exist "requirements.txt" (
-    echo [INFO] requirements.txt 기반 패키지 설치 중...
+    echo [INFO] 필수 패키지 설치중...
     pip install -r requirements.txt
-) else (
-    echo [ERROR] requirements.txt 파일을 찾지 못했습니다.
+)
+
+:: 프로그램 실행
+echo [INFO] 프로그램 실행...
+python main.py
+if %errorlevel% neq 0 (
+    echo [ERROR] 프로그램 에러 발생.
     exit /b 1
 )
-
-:: REM 프로그램 실행
-echo [INFO] 프로그램 실행 중...
-python main.py
