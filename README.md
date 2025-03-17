@@ -32,8 +32,10 @@ Chrome과 Selenium을 이용해 매크로가 가동되며, PyQt를 통해 GUI가
 
 ## 사용 방법 [Windows]
 
-- [build_and_run.bat](https://github.com/missiletoe/kream-inventory/blob/main/build_and_run.bat)을 CMD로 실행시키면 필요 패키지 설치 후 창이 나타납니다.
-   - Python 및 Qt Designer 설치 시 설치에 동의를 묻는 단계가 나오는데 'y'를 눌러주시면 넘어갑니다.
+- [build_and_run.bat](https://github.com/missiletoe/kream-inventory/blob/main/build_and_run.bat)을 **관리자 권한**으로 실행시키면 필요 패키지 설치 후 창이 나타납니다.
+   - Qt Designer 설치 시 약관에 동의를 묻는 질문이 나오는데 'y'를 눌러주시면 넘어갑니다.
+
+---
 
 ## (3/18) 기존에 이전 버전을 다운 받아 사용하시는 분들 주목
 
