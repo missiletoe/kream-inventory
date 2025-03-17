@@ -18,11 +18,13 @@ Chrome과 Selenium을 이용해 매크로가 가동되며, PyQt를 통해 GUI가
 
 ## 설치 방법
 
-터미널 또는 CMD에 Git을 설치하고, 이 Git을 clone하거나 [GitHub](https://github.com/missiletoe/kream-inventory/)에서 Git 폴더를 다운받습니다:
+- 터미널 또는 CMD에 Git을 설치하고, 이 Git을 clone하거나 [GitHub](https://github.com/missiletoe/kream-inventory/)에서 Git 폴더를 다운받습니다:
 
    ```bash
    git clone https://github.com/missiletoe/kream-inventory.git
    ```
+
+- 또는 [.zip 파일](https://github.com/missiletoe/kream-inventory/archive/refs/heads/main.zip)을 다운받아 압축을 풀어 사용합니다.
 
 ## 사용 방법 [macOS]
 
@@ -30,10 +32,10 @@ Chrome과 Selenium을 이용해 매크로가 가동되며, PyQt를 통해 GUI가
 
 ## 사용 방법 [Windows]
 
-### 방법 1. exe 파일 구동
-
-- [build/exe.win-amd64-3.11](https://github.com/missiletoe/kream-inventory/tree/main/build/exe.win-amd64-3.11) 폴더 내 kream_inventory.exe 를 실행합니다.
-
-### 방법 2. 명령어 파일 구동
-- [Python 3.11.9](https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe)을 설치합니다.
 - [build_and_run.bat](https://github.com/missiletoe/kream-inventory/blob/main/build_and_run.bat)을 CMD로 실행시키면 필요 패키지 설치 후 창이 나타납니다.
+   - Python 및 Qt Designer 설치 시 설치에 동의를 묻는 단계가 나오는데 'y'를 눌러주시면 넘어갑니다.
+
+## (3/18) 기존에 이전 버전을 다운 받아 사용하시는 분들 주목
+
+- 윈도우 환경에서의 배치 파일(.bat), 맥OS 환경에서의 커맨드 파일(.command)가 대거 수정되었습니다.
+- 파이썬 가상환경 설정 경로 및 필수 패키지가 바꼈으니 기존 파일은 지워주시고 새로 파일을 다운받아 사용하시기 바랍니다.
