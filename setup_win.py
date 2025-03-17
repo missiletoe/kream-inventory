@@ -7,6 +7,7 @@
 
 from cx_Freeze import setup, Executable
 import os
+import sys
 
 # QT 플러그인 경로 처리
 build_exe_options = {
@@ -17,9 +18,14 @@ build_exe_options = {
         (
             os.path.join(".venv", "Lib", "site-packages", "PyQt6", "Qt6", "plugins", "platforms"),
             os.path.join("platforms")
+        ),
+        (
+            os.path.join(os.path.dirname(sys.executable), "python311.dll"),
+            "python311.dll"
         )
     ],
     "excludes": [],
+    "include_msvcr": True,
 }
 
 base = None
