@@ -20,7 +20,7 @@ build_exe_options = {
             os.path.join("platforms")
         ),
         (
-            os.path.join(os.path.dirname(sys.executable), "python311.dll"),
+            os.path.join(sys.base_prefix, "python311.dll"),
             "python311.dll"
         )
     ],
