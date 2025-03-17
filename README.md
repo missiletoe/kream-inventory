@@ -32,7 +32,7 @@ Chrome과 Selenium을 이용해 매크로가 가동되며, PyQt를 통해 GUI가
 
 ### 방법 1. exe 파일 구동
 
-- [build/exe.win-amd64-3.11](https://github.com/missiletoe/kream-inventory/tree/main/build/exe.win-amd64-3.11) 폴더 내 main.exe 를 실행합니다.
+- [build/exe.win-amd64-3.11](https://github.com/missiletoe/kream-inventory/tree/main/build/exe.win-amd64-3.11) 폴더 내 kream_inventory.exe 를 실행합니다.
 
 ### 방법 2. 명령어 파일 구동
 - [Python 3.11.9](https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe)을 설치합니다.
