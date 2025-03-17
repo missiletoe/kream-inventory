@@ -24,6 +24,7 @@ build_exe_options = {
             "python311.dll"
         )
     ],
+    "packages": ["encodings"],
     "excludes": [],
     "include_msvcr": True,
 }
