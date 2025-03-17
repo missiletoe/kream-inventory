@@ -30,5 +30,10 @@ Chrome과 Selenium을 이용해 매크로가 가동되며, PyQt를 통해 GUI가
 
 ## 사용 방법 [Windows]
 
-- [파이썬](https://www.python.org/ftp/python/3.13.2/python-3.13.2-amd64.exe)을 설치합니다.
+### 방법 1. exe 파일 구동
+
+- [build/exe.win-amd64-3.11](https://github.com/missiletoe/kream-inventory/tree/main/build/exe.win-amd64-3.11) 폴더 내 main.exe 를 실행합니다.
+
+### 방법 2. 명령어 파일 구동
+- [Python 3.11.9](https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe)을 설치합니다.
 - [build_and_run.bat](https://github.com/missiletoe/kream-inventory/blob/main/build_and_run.bat)을 CMD로 실행시키면 필요 패키지 설치 후 창이 나타납니다.
