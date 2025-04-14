@@ -56,6 +56,10 @@ class MacroPlugin(PluginBase, QObject):
             inventory_opened = False
             # 즉시 첫 번째 시도 시작
             self._log("매크로가 시작되었습니다. 즉시 첫 번째 시도를 진행합니다...")
+            
+            # 매크로 시작 시 즉시 올바른 보관판매 페이지로 이동
+            self._navigate_to_inventory_page(product_id)
+            
             while self._running:
                 try:
                     # 로그인 상태 확인
@@ -66,23 +70,39 @@ class MacroPlugin(PluginBase, QObject):
                             self.macro_status_changed.emit(False)
                             break
                         self._log("로그인 성공. 계속 진행합니다.")
+                        # 로그인 성공 후 다시 보관판매 페이지로 이동
+                        self._navigate_to_inventory_page(product_id)
                         continue
                     
-                    # 페이지 확인
-                    page_check = self.error_handler.check_wrong_page(product_id)
-                    if page_check["status"] == "application_page":
-                        inventory_opened = True
-                        self._log(page_check["message"])
-                    elif page_check["status"] == "inventory_page":
-                        inventory_opened = False
-                        self._log(page_check["message"])
-                    elif page_check["status"] == "unknown_page":
-                        self._log(page_check["message"])
+                    # 페이지 확인 (현재 URL에서 보관판매 페이지인지 바로 확인)
+                    current_url = self.browser.current_url
+                    
+                    # 신청내역 페이지 확인
+                    try:
+                        title_elements = self.browser.find_elements(By.CSS_SELECTOR, 'span.title_txt')
+                        for element in title_elements:
+                            if "신청 내역" in element.text:
+                                inventory_opened = True
+                                self._log("신청내역 페이지 감지됨")
+                                break
+                        else:
+                            # 신청내역 페이지가 아닌 경우
+                            
+                            # 보관판매 페이지 확인
+                            if 'inventory' in current_url and product_id in current_url:
+                                inventory_opened = False
+                                self._log("보관판매 페이지 감지됨")
+                            # 그 외 다른 페이지 - 직접 보관판매 페이지로 이동
+                            else:
+                                self._log("예상 페이지가 아닙니다. 보관판매 페이지로 이동합니다.")
+                                self._navigate_to_inventory_page(product_id)
+                                inventory_opened = False
+                                continue
+                    except:
+                        # 예외 발생 시 직접 보관판매 페이지로 이동
+                        self._log("페이지 확인 중 오류 발생. 보관판매 페이지로 이동합니다.")
                         self._navigate_to_inventory_page(product_id)
                         inventory_opened = False
-                        continue
-                    elif page_check["status"] == "error":
-                        self._log(page_check["message"])
                         continue
                     
                     # 매크로 실행 (신청내역 페이지에 이미 있는 경우와 아닌 경우 구분)
@@ -115,7 +135,7 @@ class MacroPlugin(PluginBase, QObject):
                             EC.presence_of_element_located((By.CSS_SELECTOR, 'body'))
                         )
                         
-                        # 페이지 로딩 시간 대기 (브라우저 성능 차이 고려)
+                        # 페이지 로딩 시간 대기
                         time.sleep(0.5)
                         
                         # 새로고침 후 페이지 상태 다시 확인
@@ -147,8 +167,8 @@ class MacroPlugin(PluginBase, QObject):
                             EC.presence_of_element_located((By.CSS_SELECTOR, 'body'))
                         )
                         
-                        # 페이지 로딩 시간 대기 (브라우저 성능 차이 고려)
-                        time.sleep(3)
+                        # 페이지 로딩 시간 대기
+                        time.sleep(0.5)
                         
                         # 현재 페이지 상태 다시 확인
                         try:
@@ -386,6 +406,7 @@ class MacroPlugin(PluginBase, QObject):
             
             # 페이지 로딩 확인
             if not self.error_handler.verify_page_loading(essential_selectors):
+                self._log("결제 페이지 요소를 찾을 수 없습니다. 보관판매 페이지로 돌아갑니다.")
                 return False
             
             # 서비스 오류 확인

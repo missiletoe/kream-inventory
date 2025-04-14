@@ -1,3 +1,16 @@
 .DS_Store
 .idea
 .vscode
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller
+*.spec
+*.manifest
+*.spec.py
+*.spec.pyc
+*.spec.pyo
+*.spec.pyd
