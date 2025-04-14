@@ -1,15 +1,15 @@
 import sys
 import os
 from PyQt6.QtWidgets import QApplication
-from src.core.config import ConfigManager
-from src.core.browser import BrowserManager
-from src.core.plugin_manager import PluginManager
-from src.ui.main_window import MainWindow
+from .core.config import ConfigManager
+from .core.browser import BrowserManager
+from .core.plugin_manager import PluginManager
+from .ui.main_window import MainWindow
 
 
 def main():
     # 설정 파일 로드
-    config_path = os.path.expanduser('./config.ini')
+    config_path = os.path.join(os.path.dirname(__file__), 'config.ini')
     config = ConfigManager(config_path)
 
     # 브라우저 초기화

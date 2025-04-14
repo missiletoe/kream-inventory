@@ -1,7 +1,7 @@
 # core/plugin_manager.py
 
-from src.plugins import detail_plugin
-from src.plugins import search_plugin, macro_plugin, login_plugin
+from ..plugins import detail_plugin
+from ..plugins import search_plugin, macro_plugin, login_plugin
 
 
 class PluginManager:

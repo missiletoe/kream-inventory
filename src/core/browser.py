@@ -1,33 +1,34 @@
 # core/browser.py
-import chromedriver_autoinstaller
+
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 
 class BrowserManager:
 
     def __init__(self, config):
-
-        options = webdriver.ChromeOptions()
-
-        # 설정에서 user_agent와 headless 옵션 불러오기
-        ua = config.get('Browser', 'user_agent', fallback=True)
-        headless = config.getboolean('Browser', 'headless', fallback=True)
-        options.add_argument(f"user-agent={ua}")
-
-        if headless:
-            options.add_argument("--headless")
-
-        # 기타 옵션 설정
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-
-        driver_path = chromedriver_autoinstaller.install()
-        service = Service(driver_path)
-        self.driver = webdriver.Chrome(service=service, options=options)
+        self.config = config
+        self.driver = None
 
     def get_driver(self):
+
+        if not self.driver:
+            options = Options()
+
+            # Apply consistent settings from ConfigManager
+            user_agent = self.config.get('Browser', 'user_agent', fallback=None)
+
+            if user_agent:
+                options.add_argument(f'user-agent={user_agent}')
+
+            if self.config.getboolean('Browser', 'headless', fallback=False):
+                options.add_argument('--headless')
+
+            self.driver = webdriver.Chrome(options=options)
+
         return self.driver
 
     def quit(self):
-        self.driver.quit()
+
+        if self.driver:
+            self.driver.quit()
+            self.driver = None
