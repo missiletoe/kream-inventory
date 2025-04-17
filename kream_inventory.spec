@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['src/__init__.py'],
+    ['__init__.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets/*', 'assets')],
+    datas=[],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -39,6 +39,6 @@ exe = EXE(
 app = BUNDLE(
     exe,
     name='kream_inventory.app',
-    icon='assets/icon.icns',
-    bundle_identifier='com.missiletoe.kreaminventory',
+    icon=None,
+    bundle_identifier=None,
 )

@@ -2,6 +2,9 @@
 .idea
 .vscode
 
+# Python virtual environment
+.venv
+
 # Python cache files
 __pycache__/
 *.py[cod]
@@ -14,3 +17,18 @@ __pycache__/
 *.spec.pyc
 *.spec.pyo
 *.spec.pyd
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+.wheel
+*.egg-info
+*/logs
