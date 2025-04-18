@@ -13,7 +13,7 @@ from selenium.common.exceptions import (
     TimeoutException,
     WebDriverException
 )
-from src.core.plugin_base import PluginBase
+from src.kream_inventory.core.plugin_base import PluginBase
 import time
 
 class SearchPlugin(PluginBase, QObject):

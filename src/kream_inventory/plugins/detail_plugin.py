@@ -1,13 +1,13 @@
 # plugins/detail_plugin.py
 
-from src.core.plugin_base import PluginBase
+from src.kream_inventory.core.plugin_base import PluginBase
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from PyQt6.QtCore import pyqtSignal, QObject
 from selenium.common.exceptions import NoSuchElementException
 from datetime import datetime, date
-import re
+
 
 class DetailPlugin(PluginBase, QObject):
     details_ready = pyqtSignal(dict)

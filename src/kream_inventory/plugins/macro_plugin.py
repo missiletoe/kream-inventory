@@ -4,19 +4,19 @@ import random
 import threading
 import time
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from PyQt6.QtCore import QObject, pyqtSignal
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import WebDriverException, TimeoutException, NoSuchElementException, StaleElementReferenceException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
 
-from src.core.plugin_base import PluginBase
-from src.plugins.login_manager import LoginManager
-from src.plugins.toast_handler import ToastHandler
-from src.plugins.macro_exceptions import MacroExceptions
-from src.plugins.error_handler import ErrorHandler
+from src.kream_inventory.core.plugin_base import PluginBase
+from src.kream_inventory.plugins.login_manager import LoginManager
+from src.kream_inventory.plugins.toast_handler import ToastHandler
+from src.kream_inventory.plugins.macro_exceptions import MacroExceptions
+from src.kream_inventory.plugins.error_handler import ErrorHandler
 
 
 class MacroPlugin(PluginBase, QObject):
