@@ -1,4 +1,7 @@
-from selenium.common import NoSuchElementException, TimeoutException
+import traceback
+
+from selenium.common import (NoSuchElementException,
+                             StaleElementReferenceException, TimeoutException)
 from selenium.webdriver.common.by import By
 
 
@@ -67,4 +70,52 @@ class MacroExceptions:
                 return True
             return False
         except (NoSuchElementException, TimeoutException):
-            return False 
+            return False
+
+    # --- New Generic Exception Handlers ---
+
+    @staticmethod
+    def handle_timeout_exception(browser, log_callback, exception, context):
+        """Handles TimeoutException by logging the error context."""
+        error_msg = f"[{context}] Timeout 오류 발생: {str(exception)}"
+        log_callback(error_msg)
+        # Optionally log current URL for debugging
+        try:
+            log_callback(f"[{context}] 현재 URL: {browser.current_url}")
+        except Exception as url_err:
+            log_callback(f"[{context}] 현재 URL 로깅 중 오류: {url_err}")
+        return False # Indicate failure for the current attempt
+
+    @staticmethod
+    def handle_no_such_element_exception(browser, log_callback, exception, context):
+        """Handles NoSuchElementException by logging the error context."""
+        error_msg = f"[{context}] 요소를 찾을 수 없음 오류: {str(exception)}"
+        log_callback(error_msg)
+        # Optionally log current URL or page source snippet for debugging
+        try:
+            log_callback(f"[{context}] 현재 URL: {browser.current_url}")
+        except Exception as url_err:
+            log_callback(f"[{context}] 현재 URL 로깅 중 오류: {url_err}")
+        return False # Indicate failure for the current attempt
+
+    @staticmethod
+    def handle_stale_element_exception(browser, log_callback, exception, context):
+        """Handles StaleElementReferenceException by logging the error context."""
+        error_msg = f"[{context}] 오래된 요소 참조 오류: {str(exception)}. 페이지가 변경되었을 수 있습니다."
+        log_callback(error_msg)
+        # Stale element often means a refresh might help, but for now, just fail the attempt
+        return False # Indicate failure for the current attempt
+
+    @staticmethod
+    def handle_general_exception(browser, log_callback, exception, context):
+        """Handles generic exceptions by logging the error context and traceback."""
+        error_msg = f"[{context}] 예상치 못한 오류 발생: {str(exception)}\n{traceback.format_exc()}"
+        log_callback(error_msg)
+        # Attempt recovery like refresh (optional, can add later)
+        # try:
+        #     log_callback(f"[{context}] 오류 발생. 페이지 새로고침 시도.")
+        #     browser.refresh()
+        #     time.sleep(1)
+        # except Exception as refresh_err:
+        #     log_callback(f"[{context}] 새로고침 중 오류: {refresh_err}")
+        return False # Indicate failure for the current attempt 
