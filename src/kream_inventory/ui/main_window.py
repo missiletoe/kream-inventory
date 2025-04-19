@@ -176,6 +176,16 @@ class MainWindow(QWidget):
         macro_group.setLayout(macro_layout)
         log_macro_layout.addWidget(macro_group)
 
+        # 매크로 진행중 표시 그룹박스 (초기에는 숨김)
+        self.progress_group = QGroupBox("매크로 진행중..")
+        progress_layout = QVBoxLayout()
+        progress_label = QLabel("처리 중입니다. 중지하려면 매크로 중지 버튼을 누르세요.")
+        progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        progress_layout.addWidget(progress_label)
+        self.progress_group.setLayout(progress_layout)
+        self.progress_group.setVisible(False)
+        log_macro_layout.addWidget(self.progress_group)
+
         user_manual = """프로그램 사용 방법 \n
         1. 우측 상단에 로그인 버튼을 통해 크림 계정에 로그인합니다.\n
         2. 보관판매를 맡길 제품을 검색합니다.\n
@@ -439,11 +449,58 @@ class MainWindow(QWidget):
                 pass
             self.start_button.clicked.connect(self.stop_macro)
 
+            # 진행중 표시 활성화
+            self.progress_group.setVisible(True)
+
+            # 다른 UI 요소 비활성화
+            self.disable_ui_controls()
+
     def stop_macro(self):
         """매크로 중지 UI 핸들러"""
         if self.controller.stop_macro():
             # 버튼 상태는 매크로 상태 변경 핸들러(handle_macro_status)에서 처리됨
             pass
+
+    def disable_ui_controls(self):
+        """매크로 실행 중 UI 컨트롤 비활성화"""
+        # 검색 관련
+        self.search_input.setEnabled(False)
+        self.search_button.setEnabled(False)
+        self.search_details_button.setEnabled(False)
+        self.left_button.setEnabled(False)
+        self.right_button.setEnabled(False)
+
+        # 계정 관련
+        self.login_button.setEnabled(False)
+        self.logout_button.setEnabled(False)
+
+        # 매크로 설정 관련
+        self.size_combo.setEnabled(False)
+        self.quantity_spin.setEnabled(False)
+
+    def enable_ui_controls(self):
+        """매크로 종료 후 UI 컨트롤 다시 활성화"""
+        # 검색 관련
+        self.search_input.setEnabled(True)
+        self.search_button.setEnabled(True)
+
+        # 현재 선택된 제품이 있는 경우에만 상세 버튼 활성화
+        if hasattr(self.controller, 'current_product') and self.controller.current_product:
+            self.search_details_button.setEnabled(True)
+            self.left_button.setEnabled(self.controller.has_previous_result())
+            self.right_button.setEnabled(self.controller.has_next_result())
+
+        # 계정 관련
+        self.login_button.setEnabled(True)
+        self.logout_button.setEnabled(True)
+
+        # 매크로 설정 관련 (사이즈가 있는 경우에만 활성화)
+        if self.size_combo.count() > 0:
+            self.size_combo.setEnabled(True)
+            self.quantity_spin.setEnabled(True)
+
+        # 진행중 표시 비활성화
+        self.progress_group.setVisible(False)
 
     def handle_macro_status(self, status):
         if status:
@@ -460,4 +517,5 @@ class MainWindow(QWidget):
             except TypeError:
                 pass
             self.start_button.clicked.connect(self.start_macro)
+            self.enable_ui_controls()
         self.start_button.setEnabled(True)

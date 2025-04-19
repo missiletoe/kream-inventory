@@ -12,23 +12,13 @@ __pycache__/
 
 # PyInstaller
 *.spec
-*.manifest
-*.spec.py
-*.spec.pyc
-*.spec.pyo
-*.spec.pyd
+*.egg-info
 
 # Distribution / packaging
-.Python
 build/
-develop-eggs/
 dist/
-eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-.wheel
-*.egg-info
-*/logs
+*.spec.pyd
+.Python
+
+# Electron
+electron_app/

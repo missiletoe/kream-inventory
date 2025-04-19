@@ -1,8 +1,6 @@
 import random
 import threading
 import time
-import traceback
-from datetime import datetime
 
 from PyQt6.QtCore import QObject, pyqtSignal
 from selenium.common.exceptions import (NoSuchElementException,
@@ -14,10 +12,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from src.kream_inventory.core.plugin_base import PluginBase
-from src.kream_inventory.plugins.macro.macro_error_handler import MacroErrorHandler
-from src.kream_inventory.plugins.macro.macro_log_handler import MacroLogHandler
 from src.kream_inventory.plugins.login.login_manager import LoginManager
+from src.kream_inventory.plugins.macro.macro_error_handler import MacroErrorHandler
 from src.kream_inventory.plugins.macro.macro_exceptions import MacroExceptions
+from src.kream_inventory.plugins.macro.macro_log_handler import MacroLogHandler
 from src.kream_inventory.plugins.macro.macro_toast_handler import MacroToastHandler
 
 # Constants for return values from attempt functions
@@ -87,6 +85,13 @@ class MacroPlugin(PluginBase, QObject):
 
             while self._running:
                 try:
+                    # Check if browser window is still available
+                    try:
+                        self.browser.current_url  # This will throw an exception if window is closed
+                    except Exception:
+                        self._running = False
+                        break
+                        
                     if email and password and (not self.login_manager.is_logged_in() or self.browser.current_url == 'https://kream.co.kr/login'):
                         if not self.login_manager.relogin(email, password, switch_to_new_tab=False):
                             self._running = False
@@ -101,22 +106,34 @@ class MacroPlugin(PluginBase, QObject):
 
                     try:
                         current_url = self.browser.current_url
-                        inventory_opened = "신청 내역" in WebDriverWait(self.browser, 1).until(
-                            EC.presence_of_element_located((By.XPATH, "//span[contains(@class,'title_txt')]"))
-                        ).text
-
+                        try:
+                            page_title = WebDriverWait(self.browser, 1).until(
+                                EC.presence_of_element_located((By.XPATH, "//span[contains(@class,'title_txt')]"))
+                            ).text
+                            inventory_opened = "신청 내역" in page_title
+                        except:
+                            inventory_opened = False
+                            
                         if not inventory_opened and not (current_url.startswith(f'https://kream.co.kr/inventory/{product_id}')):
                             if not self._navigate_to_inventory_page(product_id):
                                 time.sleep(random.randint(3, 7))
                                 continue
                     except TimeoutException:
                         inventory_opened = False
-                        current_url = self.browser.current_url
-                        if not current_url.startswith(f'https://kream.co.kr/inventory/{product_id}'):
-                             if not self._navigate_to_inventory_page(product_id):
-                                 time.sleep(random.randint(3, 7))
-                                 continue
+                        try:
+                            current_url = self.browser.current_url
+                            if not current_url.startswith(f'https://kream.co.kr/inventory/{product_id}'):
+                                if not self._navigate_to_inventory_page(product_id):
+                                    time.sleep(random.randint(3, 7))
+                                    continue
+                        except Exception:
+                            # Window might be closed
+                            self._running = False
+                            break
                     except Exception as e:
+                        if "no such window" in str(e).lower():
+                            self._running = False
+                            break
                         MacroExceptions.handle_general_exception(self.browser, self.log_handler, e, "페이지 상태 확인")
                         inventory_opened = False
                         time.sleep(random.randint(3, 7))
@@ -137,20 +154,7 @@ class MacroPlugin(PluginBase, QObject):
                     else:
                         self.log_handler.log(f"보관판매 신청 시도 {attempt}회 — 실패", allowed_key="ATTEMPT_FAIL")
 
-                        if result == PAYMENT_FAILURE:
-                            try:
-                                self.browser.refresh()
-                                WebDriverWait(self.browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body')))
-                                time.sleep(0.5)
-                                if not self._navigate_to_inventory_page(product_id):
-                                     self._running = False
-                                     break
-                                inventory_opened = False
-                            except Exception as e:
-                                MacroExceptions.handle_general_exception(self.browser, self.log_handler, e, "결제 실패 후 새로고침/재이동")
-                                self._running = False
-                                break
-
+                        # Wait the configured interval without refreshing
                         if self._running:
                             wait_sec = random.randint(min_itv, max_itv)
                             self.log_handler.log(f"{wait_sec}초 대기 시작 (누적: {total_wait_time + wait_sec}초)")
@@ -162,15 +166,20 @@ class MacroPlugin(PluginBase, QObject):
                             if not self._running: break
 
                 except Exception as e:
+                    if "no such window" in str(e).lower():
+                        self._running = False
+                        break
+                        
                     if not MacroExceptions.handle_general_exception(self.browser, self.log_handler, e, "매크로 실행 루프"):
                         try:
-                            self.browser.refresh()
-                            WebDriverWait(self.browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body')))
-                            time.sleep(1)
-                        except Exception as recovery_err:
-                             MacroExceptions.handle_general_exception(self.browser, self.log_handler, recovery_err, "오류 복구(새로고침)")
-                             self._running = False
-                             break
+                            if "window" not in str(e).lower():  # Only refresh if not a window error
+                                self.browser.refresh()
+                                WebDriverWait(self.browser, 10).until(
+                                    EC.presence_of_element_located((By.CSS_SELECTOR, 'body')))
+                                time.sleep(1)
+                        except Exception:
+                            self._running = False
+                            break
 
                     if self._running:
                         wait_sec = random.randint(min_itv, max_itv)
@@ -185,11 +194,12 @@ class MacroPlugin(PluginBase, QObject):
             self.macro_status_changed.emit(False)
 
             try:
+                self.browser.current_url  # Check if window still exists
                 if self.browser.current_window_handle != self._original_window_handle:
                      self.browser.close()
                 if self._original_window_handle and self._original_window_handle in self.browser.window_handles:
                      self.browser.switch_to.window(self._original_window_handle)
-            except Exception as cleanup_err:
+            except Exception:
                  pass
             finally:
                  self._original_window_handle = None
@@ -221,7 +231,6 @@ class MacroPlugin(PluginBase, QObject):
                 # Check if we ended up on the correct page
                 page_check = self.error_handler.check_wrong_page(product_id)
                 if page_check["status"] != "inventory_page":
-                    self.log_handler.log(page_check["message"])
                     if page_check["status"] == "application_page":
                         return self._process_payment_page(total_wait_time)
                     return PRE_PAYMENT_FAILURE
@@ -231,9 +240,7 @@ class MacroPlugin(PluginBase, QObject):
                 WebDriverWait(self.browser, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, 'div.inventory_sell'))
                 )
-                self.log_handler.log("보관판매 페이지 진입 성공", allowed_key="PAGE_ENTRY_SUCCESS")
             except TimeoutException:
-                self.log_handler.log("보관판매 페이지 로딩 실패")
                 return PRE_PAYMENT_FAILURE
 
             # Enter inventory application page
@@ -243,8 +250,8 @@ class MacroPlugin(PluginBase, QObject):
             # Select size and quantity
             if not self._select_size_and_quantity(size, quantity):
                 return PRE_PAYMENT_FAILURE
-                
-            # Proceed with the sale
+
+            # Proceed with the sale - just wait and click
             if not self._proceed_with_sale():
                 return PRE_PAYMENT_FAILURE
                 
@@ -252,6 +259,10 @@ class MacroPlugin(PluginBase, QObject):
             return self._check_payment_info_page()
             
         except Exception as e:
+            if "no such window" in str(e).lower():
+                # Window closed error - let the main loop handle it
+                raise e
+            
             if not MacroExceptions.handle_general_exception(self.browser, self.log_handler, e, "보관판매 시도"):
                 return PAYMENT_FAILURE
             return PRE_PAYMENT_FAILURE
@@ -269,15 +280,9 @@ class MacroPlugin(PluginBase, QObject):
             
             # Check if we're on the expected page
             page_check = self.error_handler.check_wrong_page(product_id)
-            if page_check["status"] == "inventory_page":
-                self.log_handler.log("보관판매 페이지 진입 성공", allowed_key="PAGE_ENTRY_SUCCESS")
-                return True
-            elif page_check["status"] == "application_page":
-                self.log_handler.log("신청내역 페이지 감지됨", allowed_key="PAGE_ENTRY_SUCCESS")
+            if page_check["status"] == "inventory_page" or page_check["status"] == "application_page":
                 return True
             else:
-                self.log_handler.log(f"페이지 진입 실패: {page_check['message']}")
-                
                 # Try one more time with product page first
                 try:
                     product_url = f"https://kream.co.kr/products/{product_id}"
@@ -295,10 +300,11 @@ class MacroPlugin(PluginBase, QObject):
                             )
                             return True
                     return False
-                except Exception as retry_err:
-                    MacroExceptions.handle_general_exception(self.browser, self.log_handler, retry_err, "상품 페이지 경유 진입 시도")
+                except Exception:
                     return False
         except Exception as e:
+            if "no such window" in str(e).lower():
+                raise e
             MacroExceptions.handle_general_exception(self.browser, self.log_handler, e, "보관판매 페이지 이동")
             return False
 
@@ -326,14 +332,13 @@ class MacroPlugin(PluginBase, QObject):
                         return True
                 except StaleElementReferenceException:
                     continue
-                    
-            self.log_handler.log("보관판매 버튼을 찾을 수 없습니다.")
             return False
             
         except TimeoutException:
-            self.log_handler.log("보관판매 버튼을 찾을 수 없거나 페이지 로딩 시간 초과")
             return False
         except Exception as e:
+            if "no such window" in str(e).lower():
+                raise e
             MacroExceptions.handle_general_exception(self.browser, self.log_handler, e, "보관판매 신청 페이지 진입")
             return False
 
@@ -377,7 +382,6 @@ class MacroPlugin(PluginBase, QObject):
                         continue
             
             if not size_selected:
-                self.log_handler.log(f"선택한 사이즈({size})를 찾을 수 없습니다.")
                 return False
             
             # Select quantity if quantity selection exists
@@ -396,16 +400,17 @@ class MacroPlugin(PluginBase, QObject):
             except TimeoutException:
                 # Some products might not have quantity selection, proceed anyway
                 pass
-            except Exception as qty_err:
-                self.log_handler.log(f"수량 선택 중 오류: {str(qty_err)}")
+            except Exception:
                 # Continue anyway, it might work with default quantity
+                pass
             
             return True
             
         except TimeoutException:
-            self.log_handler.log("사이즈 선택 요소를 찾을 수 없습니다.")
             return False
         except Exception as e:
+            if "no such window" in str(e).lower():
+                raise e
             MacroExceptions.handle_general_exception(self.browser, self.log_handler, e, "사이즈/수량 선택")
             return False
 
@@ -418,7 +423,6 @@ class MacroPlugin(PluginBase, QObject):
             
             submit_button = self.browser.find_element(By.CSS_SELECTOR, 'div.btn_confirm')
             if 'disabled' in submit_button.get_attribute('class'):
-                self.log_handler.log("신청 버튼이 비활성화되어 있습니다.")
                 return False
                 
             submit_button.click()
@@ -431,9 +435,10 @@ class MacroPlugin(PluginBase, QObject):
             return True
             
         except TimeoutException:
-            self.log_handler.log("다음 페이지 로딩 시간 초과")
             return False
         except Exception as e:
+            if "no such window" in str(e).lower():
+                raise e
             MacroExceptions.handle_general_exception(self.browser, self.log_handler, e, "신청 버튼 클릭")
             return False
 
@@ -445,7 +450,6 @@ class MacroPlugin(PluginBase, QObject):
                     EC.presence_of_element_located((By.CSS_SELECTOR, 'span.title_txt, title'))
                 ).text
                 if "신청 내역" in current_title:
-                    self.log_handler.log("이미 신청이 완료되었습니다.")
                     return SUCCESS  # Already on confirmation page, consider success
             except:
                 # Title check failed, continue with normal flow
@@ -496,7 +500,6 @@ class MacroPlugin(PluginBase, QObject):
                     if '결제하기' in button_text or '신청하기' in button_text or '보관판매' in button_text:
                         # Check if button is disabled
                         if 'disabled' in button.get_attribute('class'):
-                            self.log_handler.log("결제/신청 버튼이 비활성화되어 있습니다.")
                             return PRE_PAYMENT_FAILURE
                             
                         button.click()
@@ -506,7 +509,6 @@ class MacroPlugin(PluginBase, QObject):
                     continue
                 
             if not payment_button_found:
-                self.log_handler.log("결제/신청 버튼을 찾을 수 없습니다.")
                 return PRE_PAYMENT_FAILURE
                 
             # Check for any confirmation dialog and accept it
@@ -535,10 +537,11 @@ class MacroPlugin(PluginBase, QObject):
                 )
                 return SUCCESS
             except TimeoutException:
-                self.log_handler.log("결제/신청 완료 확인 시간 초과")
                 return PAYMENT_FAILURE  # Could be stuck on payment page
                 
         except Exception as e:
+            if "no such window" in str(e).lower():
+                raise e
             MacroExceptions.handle_general_exception(self.browser, self.log_handler, e, "결제/신청 처리")
             return PAYMENT_FAILURE
 

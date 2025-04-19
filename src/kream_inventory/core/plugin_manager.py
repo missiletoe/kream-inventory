@@ -1,5 +1,4 @@
-from ..plugins import detail_plugin
-from ..plugins import search_plugin, macro_plugin, login_plugin
+from ..plugins import SearchPlugin, DetailPlugin, MacroPlugin, LoginPlugin
 
 
 class PluginManager:
@@ -12,10 +11,10 @@ class PluginManager:
     def load_plugins(self):
 
         plugin_classes = [
-            login_plugin.LoginPlugin,
-            search_plugin.SearchPlugin,
-            detail_plugin.DetailPlugin,
-            macro_plugin.MacroPlugin
+            LoginPlugin,
+            SearchPlugin,
+            DetailPlugin,
+            MacroPlugin
         ]
 
         for cls in plugin_classes:
