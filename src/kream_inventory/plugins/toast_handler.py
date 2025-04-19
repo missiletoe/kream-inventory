@@ -25,6 +25,7 @@ class ToastHandler:
             
             toast_found = False
             popup_text = ""
+            logged_popup_text = ""  # Variable to store the already logged message
             
             for selector in toast_selectors:
                 try:
@@ -43,6 +44,7 @@ class ToastHandler:
                             popup_text = popup.text.strip()
                             if popup_text:
                                 self.log(f"팝업 메시지: {popup_text}")
+                                logged_popup_text = popup_text # Store the logged message
                                 toast_found = True
                                 break
                     
@@ -71,7 +73,9 @@ class ToastHandler:
                             if is_visible:
                                 popup_text = popup.text.strip()
                                 if popup_text:
-                                    self.log(f"팝업 메시지(지연 감지): {popup_text}")
+                                    # Only log if it's a new message or wasn't logged before
+                                    if popup_text != logged_popup_text:
+                                        self.log(f"팝업 메시지(지연 감지): {popup_text}")
                                     toast_found = True
                                     break
                         

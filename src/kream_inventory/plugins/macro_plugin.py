@@ -87,7 +87,6 @@ class MacroPlugin(PluginBase, QObject):
                         for element in title_elements:
                             if "신청 내역" in element.text:
                                 inventory_opened = True
-                                self._log("신청내역 페이지 감지됨")
                                 break
                         else:
                             # 신청내역 페이지가 아닌 경우
@@ -95,7 +94,6 @@ class MacroPlugin(PluginBase, QObject):
                             # 보관판매 페이지 확인
                             if 'inventory' in current_url and product_id in current_url:
                                 inventory_opened = False
-                                self._log("보관판매 페이지 감지됨")
                             # 그 외 다른 페이지 - 직접 보관판매 페이지로 이동
                             else:
                                 self._log("예상 페이지가 아닙니다. 보관판매 페이지로 이동합니다.")
@@ -211,7 +209,6 @@ class MacroPlugin(PluginBase, QObject):
                 title_elements = self.browser.find_elements(By.CSS_SELECTOR, 'span.title_txt')
                 for element in title_elements:
                     if "신청 내역" in element.text:
-                        self._log("이미 신청내역 페이지에 있습니다. 결제 과정을 진행합니다.")
                         return self._process_payment_page()
             except:
                 pass
