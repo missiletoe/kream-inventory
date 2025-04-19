@@ -1,5 +1,3 @@
-# ui/main_window.py
-
 from datetime import datetime
 
 from PyQt6.QtCore import Qt
@@ -7,10 +5,10 @@ from PyQt6.QtWidgets import (QApplication, QComboBox, QGroupBox,
                              QHBoxLayout, QLabel, QLineEdit, QPushButton,
                              QSpinBox, QTextEdit, QVBoxLayout, QWidget)
 
+from src.kream_inventory.core.main_controller import MainController
 from .image_assets import (get_button_size, get_logo_pixmap,
                            get_navigation_icons, get_window_icon)
 from .login_popup import LoginPopup
-from src.kream_inventory.core.main_controller import MainController
 
 
 class MainWindow(QWidget):

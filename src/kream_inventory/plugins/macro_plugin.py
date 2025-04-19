@@ -1,5 +1,3 @@
-# plugins/macro_plugin.py
-
 import random
 import threading
 import time
@@ -7,16 +5,16 @@ import traceback
 from datetime import datetime
 
 from PyQt6.QtCore import QObject, pyqtSignal
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 from src.kream_inventory.core.plugin_base import PluginBase
-from src.kream_inventory.plugins.login_manager import LoginManager
-from src.kream_inventory.plugins.toast_handler import ToastHandler
-from src.kream_inventory.plugins.macro_exceptions import MacroExceptions
 from src.kream_inventory.plugins.error_handler import ErrorHandler
+from src.kream_inventory.plugins.login_manager import LoginManager
+from src.kream_inventory.plugins.macro_exceptions import MacroExceptions
+from src.kream_inventory.plugins.toast_handler import ToastHandler
 
 
 class MacroPlugin(PluginBase, QObject):
@@ -62,18 +60,24 @@ class MacroPlugin(PluginBase, QObject):
             
             while self._running:
                 try:
-                    # 로그인 상태 확인
-                    if email and password and self.error_handler.check_login_required(email, password):
+                    # Check login status at the beginning of each attempt
+                    if email and password and not self.login_manager.is_logged_in():
+                        self._log("로그인 상태가 아니거나 로그인 페이지입니다. 재로그인을 시도합니다.")
                         if not self.login_manager.relogin(email, password):
-                            self._log("로그인 실패. 매크로를 종료합니다.")
+                            self._log("재로그인 실패. 매크로를 종료합니다.")
                             self._running = False
                             self.macro_status_changed.emit(False)
                             break
-                        self._log("로그인 성공. 계속 진행합니다.")
-                        # 로그인 성공 후 다시 보관판매 페이지로 이동
-                        self._navigate_to_inventory_page(product_id)
-                        continue
-                    
+                        self._log("재로그인 성공. 보관판매 페이지로 이동합니다.")
+                        # Relogin successful, navigate back to the target page and restart the attempt
+                        if not self._navigate_to_inventory_page(product_id):
+                             self._log("보관판매 페이지로 이동 실패 후 재로그인. 매크로 종료.")
+                             self._running = False
+                             self.macro_status_changed.emit(False)
+                             break
+                        inventory_opened = False # Reset state after navigation
+                        continue # Skip the rest of the current loop iteration
+
                     # 페이지 확인 (현재 URL에서 보관판매 페이지인지 바로 확인)
                     current_url = self.browser.current_url
                     

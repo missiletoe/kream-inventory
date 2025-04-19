@@ -1,5 +1,3 @@
-# core/browser.py
-
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
@@ -14,7 +12,6 @@ class BrowserManager:
         if not self.driver:
             options = Options()
 
-            # Apply consistent settings from ConfigManager
             user_agent = self.config.get('Browser', 'user_agent', fallback=None)
 
             if user_agent:

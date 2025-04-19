@@ -1,12 +1,13 @@
-# plugins/login_plugin.py
+import time
 
 from PyQt6.QtCore import QObject, pyqtSignal
-from src.kream_inventory.core.plugin_base import PluginBase
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-import time
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
+from src.kream_inventory.core.plugin_base import PluginBase
+
 
 class LoginPlugin(PluginBase, QObject):
 

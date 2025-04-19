@@ -1,9 +1,3 @@
-"""Source package for KREAM Inventory Management Application.
-
-This package contains all the source code for the KREAM inventory
-management system.
-"""
-
 from . import kream_inventory
 
 import sys
@@ -16,25 +10,20 @@ from src.kream_inventory.ui import MainWindow
 
 
 def main():
-    # 설정 파일 로드
     config_path = os.path.join(os.path.dirname(__file__), 'config.ini')
     config = ConfigManager(config_path)
 
-    # 브라우저 초기화
     browser_manager = BrowserManager(config)
     driver = browser_manager.get_driver()
 
-    # 플러그인 매니저 생성 및 플러그인 로딩
     plugin_manager = PluginManager(browser=driver, config=config)
     plugin_manager.load_plugins()
 
-    # Qt 어플리케이션 생성 및 실행
     app = QApplication(sys.argv)
     window = MainWindow(plugin_manager=plugin_manager)
     window.show()
     exit_code = app.exec()
 
-    # 종료 처리
     browser_manager.quit()
     sys.exit(exit_code)
 

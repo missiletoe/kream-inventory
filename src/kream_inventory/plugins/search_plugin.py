@@ -1,20 +1,21 @@
-# plugins/search_plugin.py
-
-from PyQt6.QtCore import QObject, pyqtSignal
+import time
 import urllib.parse
+
 import requests
+from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QPixmap
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
-    NoSuchElementException, 
+    NoSuchElementException,
     StaleElementReferenceException,
     TimeoutException,
     WebDriverException
 )
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
 from src.kream_inventory.core.plugin_base import PluginBase
-import time
+
 
 class SearchPlugin(PluginBase, QObject):
     search_result = pyqtSignal(dict)
