@@ -7,11 +7,36 @@ from selenium.common.exceptions import (NoSuchElementException,
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from src.kream_inventory.plugins.macro.macro_log_handler import MacroLogHandler
 
-class ToastHandler:
-    def __init__(self, browser: WebDriver, log_callback):
+class MacroToastHandler:
+    def __init__(self, browser: WebDriver, log_callback=None, log_handler=None):
         self.browser = browser
-        self.log = log_callback # Assumes log_callback is a function that takes a string
+        
+        # Support both direct callback and LogHandler instance
+        if log_handler and isinstance(log_handler, MacroLogHandler):
+            self.log_handler = log_handler
+            self.log = log_handler.direct_log
+        else:
+            # For backward compatibility
+            self.log_handler = None
+            self.log = log_callback
+
+    def check_service_error(self, log_errors=True):
+        """일시적인 서비스 장애 확인"""
+        try:
+            error_element = self.browser.find_element(By.CSS_SELECTOR, 'div.info_txt')
+            if error_element.text == '일시적인 서비스 장애 입니다.':
+                if log_errors:
+                    self.log(f"일시적인 서비스 장애 감지")
+                return True
+            return False
+        except (NoSuchElementException, StaleElementReferenceException):
+            return False
+        except Exception as e:
+            if log_errors:
+                self.log(f"서비스 오류 확인 중 예외 발생: {str(e)}")
+            return False
 
     def check_toast_popup(self, wait_seconds=3, total_wait_time=0, check_only_service_error=False):
         """팝업 메시지를 확인하고 상태와 필요한 지연 시간을 반환합니다.

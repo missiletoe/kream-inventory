@@ -5,11 +5,21 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from .macro_log_handler import MacroLogHandler
 
-class ErrorHandler:
-    def __init__(self, browser, log_callback):
+
+class MacroErrorHandler:
+    def __init__(self, browser, log_callback=None, log_handler=None):
         self.browser = browser
-        self.log = log_callback
+        
+        # Support both direct callback and LogHandler instance
+        if log_handler and isinstance(log_handler, MacroLogHandler):
+            self.log_handler = log_handler
+            self.log = log_handler.log
+        else:
+            # For backward compatibility
+            self.log_handler = None
+            self.log = log_callback
         
     def check_wrong_page(self, product_id):
         """잘못된 페이지 확인 및 처리"""
