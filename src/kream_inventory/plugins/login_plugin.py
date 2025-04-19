@@ -43,3 +43,18 @@ class LoginPlugin(PluginBase, QObject):
 
             # 실패 시그널
             self.login_status.emit(False, "로그인 실패: 이메일 또는 비밀번호를 확인해주세요.")
+
+    def logout(self):
+        logout_url = "https://kream.co.kr/logout"
+        landing_url = "https://kream.co.kr/"
+        try:
+            self.browser.get(logout_url)
+            
+            wait = WebDriverWait(self.browser, 3)
+            wait.until(EC.url_to_be(landing_url))
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+            
+        except TimeoutException:
+            raise TimeoutException("로그아웃 실패: 로그아웃 페이지에 접속할 수 없습니다.")
+        except Exception as e:
+            raise Exception(f"로그아웃 실패: {str(e)}")

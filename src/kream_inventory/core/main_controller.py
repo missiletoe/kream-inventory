@@ -63,9 +63,17 @@ class MainController(QObject):
         self.login_plugin.login(username, password)
     
     def logout(self):
-        self.logged_in = False
-        self.log_message.emit("로그아웃되었습니다.")
-        self.login_status_changed.emit(False, "로그아웃되었습니다.")
+        try:
+            # Attempt web logout via the login plugin
+            self.login_plugin.logout() 
+            self.log_message.emit("크림 웹사이트에서 로그아웃을 시도했습니다.")
+        except Exception as e:
+            self.log_message.emit(f"웹 로그아웃 중 오류 발생: {e}")
+        finally:
+            # Update internal state and notify UI regardless of web logout success
+            self.logged_in = False
+            self.log_message.emit("로그아웃되었습니다.")
+            self.login_status_changed.emit(False, "로그아웃되었습니다.")
     
     def search_product(self, query):
         self.search_plugin.search(query)

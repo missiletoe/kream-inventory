@@ -219,7 +219,6 @@ class MainWindow(QWidget):
 
     def handle_logout(self):
         self.controller.logout()
-        self.update_ui_after_logout()
 
     def update_ui_after_logout(self):
         self.login_button.setVisible(True)
