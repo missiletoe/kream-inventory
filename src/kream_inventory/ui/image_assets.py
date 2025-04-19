@@ -6,10 +6,11 @@ from PyQt6.QtGui import QIcon, QPixmap
 
 
 def get_window_icon():
-    icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "icon.icns")
     if sys.platform == "darwin":
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "icon.icns")
         return QIcon(icon_path)
     else:
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "icon.png")
         return QIcon(icon_path)
 
 def get_logo_pixmap():

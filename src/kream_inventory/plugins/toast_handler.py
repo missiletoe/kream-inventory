@@ -25,7 +25,6 @@ class ToastHandler:
             
             toast_found = False
             popup_text = ""
-            logged_popup_text = ""  # Variable to store the already logged message
             
             for selector in toast_selectors:
                 try:
@@ -43,8 +42,6 @@ class ToastHandler:
                         if is_visible:
                             popup_text = popup.text.strip()
                             if popup_text:
-                                self.log(f"팝업 메시지: {popup_text}")
-                                logged_popup_text = popup_text # Store the logged message
                                 toast_found = True
                                 break
                     
@@ -73,9 +70,6 @@ class ToastHandler:
                             if is_visible:
                                 popup_text = popup.text.strip()
                                 if popup_text:
-                                    # Only log if it's a new message or wasn't logged before
-                                    if popup_text != logged_popup_text:
-                                        self.log(f"팝업 메시지(지연 감지): {popup_text}")
                                     toast_found = True
                                     break
                         
@@ -87,13 +81,8 @@ class ToastHandler:
             
             # 팝업 메시지별 처리
             if toast_found and popup_text:
-                # 신규 보관신청이 제한된 카테고리의 상품
-                if "신규 보관신청이 제한된 카테고리의 상품입니다" in popup_text:
-                    self.log("신규 보관신청이 제한된 카테고리입니다. 다시 시도합니다.")
-                    return {"status": "retry", "delay": 0}
-                    
-                # 일시적인 오류로 인한 재시도
-                elif "상대방의 입찰 삭제" in popup_text or "인터넷, 와이파이" in popup_text:
+
+                if "상대방의 입찰 삭제" in popup_text or "인터넷, 와이파이" in popup_text:
                     delay = 3600  # 1시간 대기
                     block_time = datetime.now() + timedelta(seconds=delay)
                     self.log(f"[{datetime.now().strftime('%H:%M:%S')} ~ {block_time.strftime('%H:%M:%S')}] 매크로 중단")

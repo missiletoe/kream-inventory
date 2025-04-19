@@ -41,7 +41,6 @@ class MacroPlugin(PluginBase, QObject):
     def start(self, product_id, size, quantity, email=None, password=None):
         # 매크로 쓰레드 시작
         if self._running:
-            self._log("이미 매크로가 실행 중입니다.")
             return
             
         self._running = True
@@ -113,11 +112,9 @@ class MacroPlugin(PluginBase, QObject):
                     
                     if inventory_opened:
                         # 이미 신청내역 페이지에 있는 경우
-                        self._log("신청내역 페이지에서 결제 진행")
                         success = self._process_payment_page()
                     else:
                         # 처음부터 시작하는 경우
-                        self._log("보관판매 페이지에서 신청 진행")
                         success = self._attempt_sale(product_id, size, quantity)
                         # 성공했으면 inventory_opened를 True로 설정 (후속 처리를 위해)
                         if not self.browser.current_url.endswith(product_id):
@@ -275,8 +272,7 @@ class MacroPlugin(PluginBase, QObject):
         try:
             # 이미 해당 상품의 보관판매 페이지에 있는지 확인
             if self.browser.current_url.startswith(f'https://kream.co.kr/inventory/{product_id}'):
-                self._log("이미 보관판매 페이지에 있습니다.")
-                
+
                 # 페이지 요소가 로드되었는지 확인
                 WebDriverWait(self.browser, 5).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, 'div.inventory_product, div.detail-product-container'))
