@@ -10,7 +10,15 @@ from .ui import MainWindow
 
 
 def main():
-    config_path = os.path.join(os.path.dirname(__file__), 'config.ini')
+    # 프로젝트 루트 디렉토리의 config.ini를 사용하도록 경로 설정
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    config_path = os.path.join(project_root, 'config.ini')
+
+    # 설정 파일 존재 확인
+    if not os.path.exists(config_path):
+        print(f"Error: Configuration file not found at {config_path}")
+        sys.exit(1)
+        
     config = ConfigManager(config_path)
 
     browser_manager = BrowserManager(config)

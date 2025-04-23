@@ -29,6 +29,38 @@ class SearchPlugin(PluginBase, QObject):
         self.timeout = 15
         self.last_keyword = ""
 
+    def wait_for_element(self, by, selector, timeout=5):
+        """
+        요소를 찾을 때까지 최대 timeout 초 동안 대기하는 메서드
+
+        Args:
+            by: 요소를 찾는 방법 (By.CSS_SELECTOR, By.XPATH 등)
+            selector: 요소를 찾기 위한 선택자
+            timeout: 최대 대기 시간 (초)
+
+        Returns:
+            찾은 요소
+        """
+        return WebDriverWait(self.browser, timeout).until(
+            EC.presence_of_element_located((by, selector))
+        )
+
+    def wait_for_elements(self, by, selector, timeout=5):
+        """
+        요소들을 찾을 때까지 최대 timeout 초 동안 대기하는 메서드
+
+        Args:
+            by: 요소를 찾는 방법 (By.CSS_SELECTOR, By.XPATH 등)
+            selector: 요소를 찾기 위한 선택자
+            timeout: 최대 대기 시간 (초)
+
+        Returns:
+            찾은 요소들의 리스트
+        """
+        return WebDriverWait(self.browser, timeout).until(
+            EC.presence_of_all_elements_located((by, selector))
+        )
+
     def search(self, keyword: str):
         if not keyword.strip():
             self.search_result.emit({"error": "검색어를 입력해주세요."})
@@ -37,7 +69,7 @@ class SearchPlugin(PluginBase, QObject):
         self.last_keyword = keyword.strip()  # 마지막 검색어 저장
         encoded_keyword = urllib.parse.quote(keyword)
         search_url = f'https://kream.co.kr/search?keyword={encoded_keyword}&tab=products&sort=popular_score'
-        
+
         for attempt in range(self.max_retries):
             try:
                 self.browser.get(search_url)
@@ -48,7 +80,7 @@ class SearchPlugin(PluginBase, QObject):
                         len(driver.find_elements(By.CSS_SELECTOR, 'div.search_content p.nodata_main')) > 0
                     )
                 )
-                
+
                 # Get products first
                 products = self.browser.find_elements(By.CSS_SELECTOR, 'div.search_result_item.product')
                 if products:
@@ -56,18 +88,18 @@ class SearchPlugin(PluginBase, QObject):
                     self.current_index = 0
                     self._emit_current_product()
                     return
-                
+
                 # If no products found, check for no results message
                 no_data_elements = self.browser.find_elements(By.CSS_SELECTOR, 'div.search_content p.nodata_main')
                 if no_data_elements:
                     no_data_text = no_data_elements[0].text
                     self.search_result.emit({"error": no_data_text})
                     return
-                
+
                 # If neither products nor no results message found
                 self.search_result.emit({"error": "검색 결과를 가져오는데 실패했습니다."})
                 return
-                
+
             except TimeoutException:
                 if attempt == self.max_retries - 1:
                     self.search_result.emit({"error": "검색 시간이 초과되었습니다. 다시 시도해주세요."})
@@ -100,11 +132,11 @@ class SearchPlugin(PluginBase, QObject):
                 # 현재 인덱스 정보 추가
                 product_info["current_index"] = self.current_index
                 product_info["total_products"] = len(self.products)
-                
+
                 # 이전/다음 버튼 활성화 상태 정보 추가
                 product_info["enable_prev"] = self.current_index > 0
                 product_info["enable_next"] = self.current_index < len(self.products) - 1
-                
+
                 self.search_result.emit(product_info)
         except StaleElementReferenceException:
             self.search_result.emit({
@@ -149,11 +181,11 @@ class SearchPlugin(PluginBase, QObject):
             WebDriverWait(self.browser, 5).until(
                 EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'p.name, p.translated_name, p.amount, img'))
             )
-            
+
             product_name = current_product.find_element(By.CSS_SELECTOR, 'p.name').text
             translated_name = current_product.find_element(By.CSS_SELECTOR, 'p.translated_name').text
             price = current_product.find_element(By.CSS_SELECTOR, 'p.amount').text
-            
+
             # Get image with retry
             img_url = None
             for attempt in range(3):
@@ -165,20 +197,20 @@ class SearchPlugin(PluginBase, QObject):
                     if attempt == 2:
                         raise
                     time.sleep(0.5)
-            
+
             if not img_url:
                 raise NoSuchElementException("이미지 URL을 찾을 수 없습니다.")
-            
+
             img_data = requests.get(img_url, timeout=5).content
             pixmap = QPixmap()
             pixmap.loadFromData(img_data)
-            
+
             # Get status value with fallback
             try:
                 status_value = current_product.find_element(By.CSS_SELECTOR, 'div.status_value').text.strip().replace('거래', '').strip()
             except NoSuchElementException:
                 status_value = '0'
-            
+
             # Check if brand product
             is_brand = False
             try:
@@ -186,7 +218,7 @@ class SearchPlugin(PluginBase, QObject):
                 is_brand = True
             except NoSuchElementException:
                 pass
-            
+
             return {
                 "name": product_name,
                 "translated_name": translated_name,
@@ -195,6 +227,6 @@ class SearchPlugin(PluginBase, QObject):
                 "status_value": status_value,
                 "is_brand": is_brand
             }
-            
+
         except Exception as e:
             raise Exception(f"제품 정보 추출 중 오류 발생: {str(e)}")
