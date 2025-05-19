@@ -18,6 +18,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.spec.pyd
+.Python
+*.log
+debug_log.txt
 
 # PyInstaller
 *.spec
@@ -26,13 +30,6 @@ __pycache__/
 # MyPy
 .mypy_cache/
 
-# Distribution / packaging
 build/
-dist/
-*.spec.pyd
-.Python
-
 references
 src_old
-
-debug_log.txt
