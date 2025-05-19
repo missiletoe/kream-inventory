@@ -1,187 +1,196 @@
-import re
-import time
+"""토스트 메시지를 감지하고 처리하는 클래스입니다."""
 
-from selenium.common.exceptions import (NoSuchElementException,
-                                        StaleElementReferenceException)
+import time
+from typing import List, Optional
+
+from PyQt6.QtCore import QObject, pyqtSignal
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 
-class MacroToastHandler:
-    def __init__(self, browser: WebDriver, log_handler=None):
+class MacroToastHandler(QObject):
+    """웹 페이지의 토스트 메시지를 감지하고 처리하는 클래스입니다.
+
+    특정 토스트 메시지에 따라 작업을 일시 중단하거나 재시도합니다.
+    """
+
+    log_message_signal = pyqtSignal(str)
+
+    def __init__(
+        self: "MacroToastHandler",
+        browser: WebDriver,
+        click_term: int,
+        parent: Optional[QObject] = None,
+    ) -> None:
+        """새로운 MacroToastHandler 객체를 초기화합니다.
+
+        Args:
+            browser (WebDriver): Selenium WebDriver 인스턴스입니다.
+            click_term (int): 특정 조건에서 대기할 시간 (초)입니다.
+            parent (Optional[QObject], optional): 부모 QObject입니다. 기본값은 None입니다.
+        """
+        super().__init__(parent)
         self.browser = browser
-        self.log_handler = log_handler
-        self.toast_history = []
-        self.recent_messages = set()  # Track recently seen messages to avoid duplicates
-        self.last_cleanup_time = time.time()
+        self.click_term = click_term
 
-    def wait_for_element(self, by, selector, timeout=5):
-        """
-        요소를 찾을 때까지 최대 timeout 초 동안 대기하는 메서드
-
-        Args:
-            by: 요소를 찾는 방법 (By.CSS_SELECTOR, By.XPATH 등)
-            selector: 요소를 찾기 위한 선택자
-            timeout: 최대 대기 시간 (초)
+    def handle_toast(self: "MacroToastHandler") -> bool:
+        """토스트 메시지를 감지하고 적절한 조치를 취합니다.
 
         Returns:
-            찾은 요소
+            bool: 토스트 메시지 처리 후 매크로를 즉시 반환(중단 또는 재시작 결정)해야 하면 True,
+                  그렇지 않으면 False를 반환합니다.
         """
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        return WebDriverWait(self.browser, timeout).until(
-            EC.presence_of_element_located((by, selector))
-        )
+        # 가능한 모든 토스트 선택자 목록 - 가장 자주 사용되는 선택자를 먼저 배치
+        toast_selectors: List[str] = [
+            "div#toast.toast.lg.show",  # 실제 HTML에서 확인된 형식
+            "div#toast.toast.mo.show",  # 실제 HTML에서 확인된 형식
+            "div.toast.lg.show",  # ID 없이 클래스만 있는 경우
+            "div.toast.mo.show",  # 모바일 버전일 수 있음
+            "div.toast.show",  # 일반적인 클래스 조합
+        ]
 
-    def wait_for_elements(self, by, selector, timeout=5):
-        """
-        요소들을 찾을 때까지 최대 timeout 초 동안 대기하는 메서드
+        for selector in toast_selectors:
+            try:
+                # 각 선택자에 대해 짧은 시간(1초)만 대기하여 더 빠르게 확인
+                popup = WebDriverWait(self.browser, 1).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                )
+
+                # 토스트 요소를 찾았으므로 처리 로직 실행
+                popup_text = self._get_toast_text(popup)
+
+                if popup_text:
+                    return self._process_toast_message(popup_text)
+
+            except TimeoutException:
+                # 이 선택자로는 토스트를 찾지 못함, 다음 선택자 시도
+                continue
+            except Exception as e:
+                self.log_message_signal.emit(
+                    f'[{time.strftime("%H:%M:%S")}] 토스트 선택자 [{selector}] 처리 중 오류: {str(e)}'
+                )
+
+        # 모든 선택자를 시도했지만 토스트를 찾지 못함
+        return False
+
+    def _get_toast_text(self: "MacroToastHandler", toast_element: WebElement) -> str:
+        """토스트 요소에서 텍스트를 추출합니다.
+
+        여러 가능한 경로를 시도하여 텍스트를 가져옵니다.
 
         Args:
-            by: 요소를 찾는 방법 (By.CSS_SELECTOR, By.XPATH 등)
-            selector: 요소를 찾기 위한 선택자
-            timeout: 최대 대기 시간 (초)
+            toast_element: 토스트 WebElement
 
         Returns:
-            찾은 요소들의 리스트
+            str: 추출된 텍스트 또는 빈 문자열
         """
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        return WebDriverWait(self.browser, timeout).until(
-            EC.presence_of_all_elements_located((by, selector))
-        )
+        # 먼저 요소 전체 텍스트 시도
+        text = toast_element.text.strip()
+        if text:
+            return text
 
-    def _log_toast_message(self, message, allowed_key="TOAST_CONTENT"):
-        """Log a toast message, avoiding duplicates"""
-        # Create a hash of the message to track duplicates
-        message_hash = hash(message)
-
-        # Clear old messages periodically (every 60 seconds)
-        current_time = time.time()
-        if current_time - self.last_cleanup_time > 60:
-            self.recent_messages.clear()
-            self.last_cleanup_time = current_time
-
-        # Only log if we haven't seen this message recently
-        if message_hash not in self.recent_messages:
-            if self.log_handler:
-                self.log_handler.log(message, allowed_key=allowed_key)
-            # Add to recently seen messages
-            self.recent_messages.add(message_hash)
-
-    def check_service_error(self, log_errors=True):
-        """일시적인 서비스 장애 확인"""
+        # 내부 요소들을 시도
         try:
-            elements = self.wait_for_elements(By.CSS_SELECTOR, 'div.info_txt')
-            for element in elements:
-                if element.text == '일시적인 서비스 장애 입니다.':
-                    if log_errors:
-                        if self.log_handler:
-                            self.log_handler.log("일시적인 서비스 장애 감지", allowed_key="TOAST_ERROR")
-                    return True
-            return False
-        except (NoSuchElementException, StaleElementReferenceException):
-            return False
-        except Exception as e:
-            if log_errors:
-                if self.log_handler:
-                    self.log_handler.log(f"서비스 오류 확인 중 예외 발생: {str(e)}", allowed_key="TOAST_ERROR")
-            return False
-
-    def check_toast_popup(self, wait_seconds=0, total_wait_time=0):
-        """토스트 메시지 확인 및 처리"""
-        result = {
-            "status": "success",  # 'success', 'block', 'retry', 'error'
-            "message": "",
-            "delay": 0
-        }
-
-        # 토스트 팝업 확인 (최대 wait_seconds 초 동안 대기)
-        start_time = time.time()
-        while time.time() - start_time < wait_seconds:
-            # 다양한 토스트 셀렉터 확인
-            toast_selectors = [
-                'div.toast.lg.show',
-                'div.toast.lg:not(.hide)',
-                'div.toast.sm.show',
-                'div.toast.sm:not(.hide)',
-                'div.layer_toast.show',
-                'div.toast_alert.show',
-                'div.toast_alert:not(.hide)',
-                'div.toast_container .toast:not(.hide)'
+            # 제공된 HTML 구조에 맞는 선택자
+            content_selectors = [
+                "div.toast-content p",  # 실제 HTML에서 확인된 구조
+                ".toast-content",  # 내용 컨테이너
+                "p",  # 단순 p 태그
+                ".toast-message",  # 일반적인 클래스 이름
+                "span",  # span 태그
+                "div",  # 내부 div
             ]
 
-            for selector in toast_selectors:
-                toast_elements = self.wait_for_elements(By.CSS_SELECTOR, selector)
-                if toast_elements:
-                    for toast in toast_elements:
-                        toast_text = toast.text.strip()
-                        if not toast_text:
-                            continue
+            for selector in content_selectors:
+                try:
+                    elements = toast_element.find_elements(By.CSS_SELECTOR, selector)
+                    for el in elements:
+                        el_text = el.text.strip()
+                        if el_text:
+                            return el_text
+                except Exception:
+                    # 특정 선택자에서 오류가 발생하면 다음 선택자 시도
+                    continue
+        except Exception:
+            # 내부 요소에서 텍스트를 가져오지 못함
+            pass
 
-                        # Toast 내용 저장
-                        self.toast_history.append(toast_text)
+        return ""  # 텍스트를 찾지 못한 경우
 
-                        # 토스트 내용 로깅 (중복 방지 로직 사용)
-                        self._log_toast_message(f"[!] {toast_text}")
+    def _process_toast_message(self: "MacroToastHandler", message: str) -> bool:
+        """토스트 메시지 텍스트를 처리합니다.
 
-                        # Block 케이스 체크 (잠시 후 다시 시도)
-                        if any(x in toast_text for x in ["잠시 후", "다시 시도", "요청 초과", "재시도", "방문자가 많아"]):
-                            # 지연 시간 설정 (기본 30초, 번호가 있으면 추출)
-                            delay_seconds = 30
+        Args:
+            message: 토스트 메시지 텍스트
 
-                            # 숫자로 시작하는 시간 추출
-                            time_match = re.search(r'(\d+)(?:초|분)', toast_text)
-                            if time_match:
-                                delay_value = int(time_match.group(1))
-                                if '분' in time_match.group(0):
-                                    delay_seconds = delay_value * 60
-                                else:
-                                    delay_seconds = delay_value
+        Returns:
+            bool: 매크로를 중단하고 다음 루프로 진행해야 하면 True, 아니면 False
+        """
+        # 로그 메시지 출력
+        self.log_message_signal.emit(f'[{time.strftime("%H:%M:%S")}] 토스트: {message}')
 
-                            result["status"] = "block"
-                            result["message"] = toast_text
-                            result["delay"] = delay_seconds
+        # "신규 보관 신청이 제한된 카테고리의 상품입니다." 메시지 처리
+        # 정확한 메시지와 부분 일치로 모두 확인
+        if (
+            "신규 보관 신청이 제한된 카테고리" in message
+            or "신규 보관신청이 제한된 카테고리" in message
+        ):
 
-                            self._log_toast_message(f"[BLOCKED] {toast_text} ({delay_seconds}초 대기)",
-                                                    allowed_key="TOAST_BLOCK")
+            self.log_message_signal.emit(
+                f'[{time.strftime("%H:%M:%S")}] 카테고리 제한 - 최소 대기 후 재시도'
+            )
 
-                            return result
-
-                        # 다른 에러 메시지 케이스
-                        if any(x in toast_text for x in ["오류", "실패", "error", "failed"]):
-                            result["status"] = "error"
-                            result["message"] = toast_text
-
-                            self._log_toast_message(f"[ERROR] {toast_text}", allowed_key="TOAST_ERROR")
-
-                            return result
-
-                        # 재시도 가능 케이스
-                        if any(x in toast_text for x in ["재시도", "retry"]):
-                            result["status"] = "retry"
-                            result["message"] = toast_text
-                            result["delay"] = 5  # 기본 5초 대기
-
-                            self._log_toast_message(f"[RETRY] {toast_text}", allowed_key="TOAST_RETRY")
-
-                            return result
-
-            # 토스트가 없으면 잠시 대기 후 다시 확인
+            # 매우 짧은 대기 시간 (0.2초)
             time.sleep(0.2)
 
-        # 요청 횟수 초과 텍스트 체크 (페이지 소스)
-        try:
-            if "허용된 요청 횟수를 초과했습니다" in self.browser.page_source:
-                error_message = "허용된 요청 횟수를 초과했습니다"
-                result["status"] = "block"
-                result["message"] = error_message
-                result["delay"] = 30
+            # 페이지 새로고침 없이 즉시 다음 루프로 진행
 
-                self._log_toast_message(f"[EXCEEDED TRIES] {error_message} (30초 대기)", allowed_key="REQUEST_LIMIT")
+            # True 반환으로 메인 루프에 매크로 작업 중단 및 재시도 신호 전송
+            return True
 
-                return result
-        except Exception as e:
-            self._log_toast_message(f"요청 횟수 확인 중 오류: {str(e)}", allowed_key="ERROR")
+        # 심각한 오류 메시지 처리
+        error_keywords = [
+            "상대방의 입찰 삭제",
+            "카드사 응답실패",
+            "예상치 못한 오류",
+            "인터넷",
+            "와이파이",
+            "모바일 데이터",
+            "비행기모드",
+        ]
 
-        return result
+        if any(keyword in message for keyword in error_keywords):
+            # 약 1시간(3600초) 대기
+            wait_seconds = 3600
+
+            self.log_message_signal.emit(
+                f'[{time.strftime("%H:%M:%S")}] 심각한 오류 발생. 약 {wait_seconds // 60}분간 매크로 중단 후 페이지 새로고침 및 재시도합니다.'
+            )
+
+            time.sleep(wait_seconds)
+
+            self.log_message_signal.emit(
+                f'[{time.strftime("%H:%M:%S")}] 페이지를 새로고침하고 매크로를 재시작합니다.'
+            )
+
+            try:
+                # 페이지 새로고침
+                self.browser.refresh()
+                # 페이지가 완전히 로드될 때까지 대기
+                WebDriverWait(self.browser, 30).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "body"))
+                )
+            except Exception as e:
+                self.log_message_signal.emit(
+                    f'[{time.strftime("%H:%M:%S")}] 페이지 새로고침 중 오류: {str(e)}'
+                )
+
+            # True 반환으로 메인 루프에 매크로 작업 중단 및 재시도 신호 전송
+            return True
+
+        # 그 외 토스트는 로그만 남기고 메인 로직 계속 진행
+        return False

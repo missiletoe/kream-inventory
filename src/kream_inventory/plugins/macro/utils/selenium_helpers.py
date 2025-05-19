@@ -14,7 +14,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 def wait_for_element(
-    browser: WebDriver, by: str, selector: str, timeout: int = 10
+    browser: WebDriver, by: str, selector: str, timeout: int = 5
 ) -> Optional[WebElement]:
     """요소를 찾을 때까지 최대 timeout 초 동안 대기하는 함수입니다.
 
@@ -36,7 +36,7 @@ def wait_for_element(
 
 
 def wait_for_element_clickable(
-    browser: WebDriver, by: str, selector: str, timeout: int = 10
+    browser: WebDriver, by: str, selector: str, timeout: int = 5
 ) -> Optional[WebElement]:
     """요소가 클릭 가능할 때까지 최대 timeout 초 동안 대기하는 함수입니다.
 
@@ -58,7 +58,7 @@ def wait_for_element_clickable(
 
 
 def wait_for_elements(
-    browser: WebDriver, by: str, selector: str, timeout: int = 10
+    browser: WebDriver, by: str, selector: str, timeout: int = 5
 ) -> List[WebElement]:
     """요소들을 찾을 때까지 최대 timeout 초 동안 대기하는 함수입니다.
 

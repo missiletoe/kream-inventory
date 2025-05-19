@@ -35,7 +35,7 @@ class LogTracer:
         self: "LogTracer",
         log_path: Optional[str] = None,
         console_handler: Optional[Callable[[str], None]] = None,
-        min_level: str = "INFO",
+        min_level: str = "ERROR",
     ) -> None:
         """LogTracer를 초기화합니다.
 
@@ -45,10 +45,10 @@ class LogTracer:
             min_level: 기록할 최소 로그 수준입니다 (예: "INFO").
         """
         self.lock = threading.Lock()
-        self.console_handler = console_handler
+        self.console_handler = None  # 콘솔 출력을 비활성화
         self.min_level_str = min_level  # Store original string for reference if needed
         self.min_level_val: int = self.LEVELS.get(
-            min_level.upper(), self.LEVELS["INFO"]
+            min_level.upper(), self.LEVELS["ERROR"]
         )
         self.log_path = log_path
 

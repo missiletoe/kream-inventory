@@ -1,208 +1,243 @@
+"""로그인 상태를 관리하고 자동 로그인을 처리합니다.
+
+이 모듈은 크림 웹사이트의 로그인 상태를 관리하고 자동 로그인을 수행하는 클래스를 제공합니다.
+"""
+
 import re
 
 from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.by import By
+
+# from selenium.webdriver.common.by import By # By 임포트 제거 또는 str로 사용
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 
 class LoginManager:
-    """로그인 상태 관리 및 자동 로그인 처리를 위한 클래스"""
+    """로그인 상태를 관리하고 자동 로그인 프로세스를 처리합니다."""
 
-    def __init__(self, browser):
-        self.browser = browser
-
-    def wait_for_element(self, by, selector, timeout=5):
-        """
-        요소를 찾을 때까지 최대 timeout 초 동안 대기하는 메서드
+    @staticmethod
+    def validate_credentials(email: str, password: str) -> tuple[bool, str]:
+        """이메일과 비밀번호 형식을 확인합니다.
 
         Args:
-            by: 요소를 찾는 방법 (By.CSS_SELECTOR, By.XPATH 등)
-            selector: 요소를 찾기 위한 선택자
-            timeout: 최대 대기 시간 (초)
+            email: 확인할 이메일 주소입니다.
+            password: 확인할 비밀번호입니다.
 
         Returns:
-            찾은 요소
+            유효성 여부를 나타내는 불리언과 오류 메시지 문자열을 담은 튜플입니다.
+        """
+        email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        password_pattern = r"^(?=.*[A-Za-z])(?=.*\d).{8,16}$"
+        if not re.match(email_pattern, email):
+            return False, "유효하지 않은 이메일 형식입니다."
+        if not re.match(password_pattern, password):
+            return (
+                False,
+                "비밀번호는 8자 이상 16자 이하이며, 문자와 숫자를 포함해야 합니다.",
+            )
+        return True, ""
+
+    def __init__(self: "LoginManager", browser: WebDriver) -> None:
+        """이 클래스는 WebDriver 인스턴스를 사용하여 LoginManager를 초기화합니다."""
+        self.browser = browser
+
+    def wait_for_element(
+        self: "LoginManager", by: str, selector: str, timeout: int = 5
+    ) -> WebElement:
+        """페이지에 요소가 나타날 때까지 기다립니다.
+
+        Args:
+            by: 요소를 찾는 방법입니다 (예: "css selector").
+            selector: 요소의 선택자입니다.
+            timeout: 최대 대기 시간(초)입니다.
+
+        Returns:
+            찾은 WebElement입니다.
         """
         return WebDriverWait(self.browser, timeout).until(
             EC.presence_of_element_located((by, selector))
         )
 
-    def wait_for_elements(self, by, selector, timeout=5):
-        """
-        요소들을 찾을 때까지 최대 timeout 초 동안 대기하는 메서드
+    def wait_for_elements(
+        self: "LoginManager", by: str, selector: str, timeout: int = 5
+    ) -> list[WebElement]:
+        """페이지에 여러 요소가 나타날 때까지 기다립니다.
 
         Args:
-            by: 요소를 찾는 방법 (By.CSS_SELECTOR, By.XPATH 등)
-            selector: 요소를 찾기 위한 선택자
-            timeout: 최대 대기 시간 (초)
+            by: 요소를 찾는 방법입니다 (예: "css selector").
+            selector: 요소의 선택자입니다.
+            timeout: 최대 대기 시간(초)입니다.
 
         Returns:
-            찾은 요소들의 리스트
+            찾은 WebElement 목록입니다.
         """
         return WebDriverWait(self.browser, timeout).until(
             EC.presence_of_all_elements_located((by, selector))
         )
 
-    def is_logged_in(self):
-        """현재 로그인 상태인지 확인"""
+    def wait_for_element_if_visible(
+        self: "LoginManager", by: str, selector: str, timeout: int = 5
+    ) -> WebElement | None:
+        """페이지에서 요소가 보이게 될 때까지 기다립니다.
+
+        Args:
+            by: 요소를 찾는 방법입니다 (예: "css selector").
+            selector: 요소의 선택자입니다.
+            timeout: 최대 대기 시간(초)입니다.
+
+        Returns:
+            찾은 WebElement이거나, 보이지 않으면 None입니다.
+        """
         try:
-            # 로그인 시 표시되는 메뉴 아이콘 확인 (여러 선택자 시도)
+            element = WebDriverWait(self.browser, timeout).until(
+                EC.visibility_of_element_located((by, selector))
+            )
+            return element
+        except TimeoutException:
+            return None
+
+    def is_logged_in(self: "LoginManager") -> bool:
+        """사용자가 현재 로그인되어 있는지 확인합니다."""
+        try:
+            # Attempt to find elements indicating a logged-in state
             try:
-                # 기존 선택자 시도
-                menu_elements = self.wait_for_elements(By.CSS_SELECTOR, 'button.btn_my_menu, a.btn_my_menu', timeout=2)
+                menu_elements = self.wait_for_elements(
+                    "css selector", "button.btn_my_menu, a.btn_my_menu", timeout=2
+                )
                 if len(menu_elements) > 0:
                     return True
-            except:
-                pass
+            except TimeoutException:
+                pass  # Element not found, continue checking
 
-            # 로그인 상태 확인을 위한 추가 선택자 시도
             try:
-                # 로그인 링크가 없으면 로그인된 상태로 간주
-                login_links = self.browser.find_elements(By.XPATH, "//a[contains(text(), '로그인')]")
-                if len(login_links) == 0:
-                    # 마이페이지 링크가 있는지 확인
-                    my_page_links = self.browser.find_elements(By.XPATH, "//a[contains(text(), '마이페이지')]")
-                    if len(my_page_links) > 0:
+                # By.XPATH 대신 "xpath" 문자열 사용
+                login_links = self.browser.find_elements(
+                    "xpath", "//a[contains(text(), '로그인')]"
+                )
+                if not login_links:
+                    my_page_links = self.browser.find_elements(
+                        "xpath", "//a[contains(text(), '마이페이지')]"
+                    )
+                    if my_page_links:
                         return True
-            except:
-                pass
+            except Exception:  # pylint: disable=broad-except
+                pass  # Ignore errors during this check
 
-            # URL을 통한 확인 (로그인 페이지가 아니면 로그인된 것으로 간주)
             current_url = self.browser.current_url
-            if "login" not in current_url and "/my" in current_url:
+            if "login" not in current_url and current_url.startswith(
+                "https://kream.co.kr/"
+            ):
                 return True
 
             return False
-        except:
-            # 요소를 찾을 수 없으면 로그아웃 상태로 간주
+        except Exception:  # pylint: disable=broad-except
+            return False  # If any error occurs, assume not logged in
+
+    def relogin(
+        self: "LoginManager", email: str, password: str, switch_to_new_tab: bool = True
+    ) -> bool:
+        """로그인 페이지로 이동하여 다시 로그인을 시도합니다."""
+        valid, _ = self.validate_credentials(email, password)
+        if not valid:
             return False
 
-    def relogin(self, email, password, switch_to_new_tab=True):
-        """로그인 페이지로 이동 후 재로그인"""
-        # 이메일 형식 검증
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.match(email_pattern, email):
-            return False
-
-        # 비밀번호 형식 검증 (최소 8자, 문자와 숫자 포함, 특수문자 허용)
-        password_pattern = r'^(?=.*[A-Za-z])(?=.*\d).{8,}$'
-        if not re.match(password_pattern, password):
-            return False
-
-        current_url = self.browser.current_url
         original_handle = self.browser.current_window_handle
         target_handle = original_handle
 
         if switch_to_new_tab:
-            # 새 탭에서 로그인 (기존 탭 보존)
             try:
                 self.browser.execute_script("window.open('');")
-                new_handle = [handle for handle in self.browser.window_handles if handle != original_handle][0]
+                new_handle = [
+                    handle
+                    for handle in self.browser.window_handles
+                    if handle != original_handle
+                ][0]
                 self.browser.switch_to.window(new_handle)
                 target_handle = new_handle
-            except Exception as e:
-                # 새 탭 열기 실패 시 현재 탭에서 계속
-                pass
+            except Exception:  # pylint: disable=broad-except
+                pass  # Failed to open new tab, continue in current tab
 
         try:
             self.browser.get("https://kream.co.kr/login")
-
-            # 로그인 페이지 로딩 대기
             WebDriverWait(self.browser, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="email"]'))
+                EC.presence_of_element_located(("css selector", 'input[type="email"]'))
             )
 
-            # 이메일, 비밀번호 입력
-            email_input = self.wait_for_element(By.CSS_SELECTOR, 'input[type="email"]')
-            password_input = self.wait_for_element(By.CSS_SELECTOR, 'input[type="password"]')
+            email_input = self.wait_for_element("css selector", 'input[type="email"]')
+            password_input = self.wait_for_element(
+                "css selector", 'input[type="password"]'
+            )
 
             email_input.clear()
             email_input.send_keys(email)
             password_input.clear()
             password_input.send_keys(password)
 
-            # 로그인 버튼 클릭
-            login_button = self.wait_for_element(By.CSS_SELECTOR, 'button[type="submit"]')
+            login_button = self.wait_for_element(
+                "css selector", 'button[type="submit"]'
+            )
             login_button.click()
 
-            # 로그인 성공 확인 (로그인 후 페이지 로딩 대기)
-            try:
-                # 페이지 로딩 대기
-                WebDriverWait(self.browser, 5).until(
-                    EC.presence_of_element_located((By.TAG_NAME, 'body'))
-                )
-
-                # 로그인 상태 확인 (여러 방법 시도)
-                login_success = False
-
-                # 방법 1: is_logged_in 메서드 사용
-                if self.is_logged_in():
-                    login_success = True
-
-                # 방법 2: URL 확인
-                if not login_success and "login" not in self.browser.current_url:
-                    login_success = True
-
-                # 로그인 실패 시 예외 발생
-                if not login_success:
-                    raise TimeoutException("로그인 상태를 확인할 수 없습니다.")
-            except Exception as e:
-                print(f"로그인 확인 중 오류 발생: {str(e)}")
-                raise TimeoutException("로그인 확인 실패")
-
-            if not switch_to_new_tab:
-                # 원래 페이지로 돌아가기 (필요시)
-                if current_url and current_url != self.browser.current_url and "login" not in current_url:
-                    self.browser.get(current_url)
-
-                    # 페이지 로딩 대기 (최소한의 로딩 확인)
-                    WebDriverWait(self.browser, 10).until(
-                        EC.presence_of_element_located((By.TAG_NAME, 'body'))
-                    )
-
+            WebDriverWait(self.browser, 5).until(
+                EC.presence_of_element_located(("css selector", "body"))
+            )
             return True
 
         except TimeoutException:
             if switch_to_new_tab and target_handle != original_handle:
-                # 로그인 실패 시 원래 탭으로 돌아가기
                 self.browser.close()
                 self.browser.switch_to.window(original_handle)
             return False
 
-        except Exception as e:
+        except Exception:  # pylint: disable=broad-except
             if switch_to_new_tab and target_handle != original_handle:
-                # 오류 발생 시 원래 탭으로 돌아가기
                 try:
                     self.browser.close()
                     self.browser.switch_to.window(original_handle)
-                except:
-                    # 탭 닫기/전환 중 오류 무시
-                    pass
+                except Exception:  # pylint: disable=broad-except
+                    pass  # Ignore errors during tab closing/switching
             return False
 
-    def check_and_relogin_if_needed(self, email, password, max_attempts=2):
-        """로그인 상태 확인 후 필요시 재로그인"""
-        # 첫 번째 확인
+    def check_and_relogin_if_needed(
+        self: "LoginManager", email: str, password: str, max_attempts: int = 2
+    ) -> bool:
+        """로그인 상태를 확인하고 필요한 경우 다시 로그인합니다."""
         if self.is_logged_in():
             return True
 
-        print("로그인 상태가 아닙니다. 재로그인을 시도합니다.")
+        # print("로그인 상태가 아닙니다. 재로그인을 시도합니다.") # Logged by caller if needed
 
-        # 재로그인 시도
-        for attempt in range(max_attempts):
-            print(f"로그인 시도 {attempt + 1}/{max_attempts}")
-
-            # 재로그인 시도
-            login_result = self.relogin(email, password)
-
-            if login_result:
-                print("재로그인 성공")
+        for _attempt in range(max_attempts):
+            # print(f"로그인 시도 {attempt + 1}/{max_attempts}") # Logged by caller if needed
+            if self.relogin(email, password):
+                # print("재로그인 성공") # Logged by caller if needed
                 return True
-
-            # 실패 시 짧은 대기 후 다시 시도
             import time
+
             time.sleep(1)
 
-        print("모든 로그인 시도 실패")
+        # print("모든 로그인 시도 실패") # Logged by caller if needed
         return False
+
+    def login_via_alternative_method(
+        self: "LoginManager", email: str, password: str
+    ) -> None:
+        """대체 로그인 방법을 위한 플레이스홀더입니다."""
+        # This method is a placeholder and should be implemented if needed.
+        # For now, it does nothing.
+        pass
+
+    def handle_login_success(self: "LoginManager") -> None:
+        """로그인 후 작업(예: 쿠키 정책 동의)을 처리합니다."""
+        try:
+            accept_cookie_btn = self.wait_for_element_if_visible(
+                "xpath", "//button[contains(text(), '모두 동의하기')]", timeout=2
+            )
+            if accept_cookie_btn:
+                accept_cookie_btn.click()
+        except TimeoutException:
+            pass  # Cookie consent button not found or not visible
+        except Exception:  # pylint: disable=broad-except
+            pass  # Ignore other errors during cookie handling

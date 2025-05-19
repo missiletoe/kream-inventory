@@ -1,61 +1,109 @@
+"""UI 클래스.
+
+- 로그인 팝업
+- 검색 팝업
+- 상세 팝업
+- 매크로 팝업
+- 매크로 진행중 팝업
+- 매크로 완료 팝업
+"""
+
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Any
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QApplication, QComboBox, QGroupBox,
-                             QHBoxLayout, QLabel, QLineEdit, QPushButton,
-                             QSpinBox, QTextEdit, QVBoxLayout, QWidget)
+from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtWidgets import (
+    QApplication,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from src.kream_inventory.core.main_controller import MainController
-from .image_assets import (get_button_size, get_logo_pixmap,
-                           get_navigation_icons, get_window_icon)
+from ..core.main_controller import MainController
+from ..core.plugin_manager import PluginManager
+from .image_assets import (
+    get_button_size,
+    get_logo_pixmap,
+    get_navigation_icons,
+    get_window_icon,
+)
 from .login_popup import LoginPopup
 
 
 class MainWindow(QWidget):
-    def __init__(self, plugin_manager):
+    """메인 윈도우 클래스.
+
+    Args:
+        plugin_manager: 플러그인 관리자
+        main_controller: 메인 컨트롤러
+    """
+
+    def __init__(
+        self: MainWindow, plugin_manager: PluginManager, main_controller: MainController
+    ) -> None:
+        """메인 윈도우 초기화."""
         super().__init__()
         # 컨트롤러 초기화
-        self.controller = MainController(plugin_manager)
+        self.controller = main_controller
+        # 브랜드 공식 배송 상품 여부 초기화
+        self.current_product_is_official = False
         self.initUI()
         self.connectSignals()
 
-    def initUI(self):
-        self.setWindowTitle('크림 보관판매 매크로 by missiletoe')
+    def initUI(self: MainWindow) -> None:
+        """UI를 초기화하고 기본 레이아웃을 설정합니다."""
+        self.setWindowTitle("크림 보관판매 매크로 by missiletoe")
 
         # Set window icon
         QApplication.setWindowIcon(get_window_icon())
 
         # Set window size and position
         screen = QApplication.primaryScreen()
-        screen_geometry = screen.availableGeometry()
-        screen_width = screen_geometry.width()
-        screen_height = screen_geometry.height()
-        self.setGeometry(0, 0, int(screen_width // 1.5), int((screen_height // 1.5) - 22))
-        x = (screen_geometry.width() - self.width()) // 2
-        y = (screen_geometry.height() - self.height()) // 2
-        self.move(x, y)
+        button_size_val = 50  # 기본 버튼 크기
+        if screen:
+            screen_geometry = screen.availableGeometry()
+            screen_width = screen_geometry.width()
+            screen_height = screen_geometry.height()
+            self.setGeometry(
+                0, 0, int(screen_width // 1.5), int((screen_height // 1.5) - 22)
+            )
+            x = (screen_geometry.width() - self.width()) // 2
+            y = (screen_geometry.height() - self.height()) // 2
+            self.move(x, y)
+            button_size_val = get_button_size(screen)  # screen이 None이 아닐 때만 호출
+        else:
+            # 기본 창 크기 설정 (스크린을 얻을 수 없는 경우)
+            self.setGeometry(100, 100, 1200, 800)
 
         # Create main layout
         layout = QVBoxLayout()
 
         # Account section at the top
         account_layout = QHBoxLayout()
-        
+
         # Account group box
         account_group = QGroupBox("계정")
         account_group_layout = QHBoxLayout()
         self.account_label = QLabel("크림 계정 로그인이 필요합니다.")
         account_group_layout.addWidget(self.account_label, 9)  # 9:1 ratio
-        
+
         # Login/Logout button inside account group
-        self.login_button = QPushButton('로그인', self)
+        self.login_button = QPushButton("로그인", self)
         self.login_button.clicked.connect(self.show_login_popup)
-        self.logout_button = QPushButton('로그아웃', self)
+        self.logout_button = QPushButton("로그아웃", self)
         self.logout_button.clicked.connect(self.handle_logout)
         self.logout_button.setVisible(False)
         account_group_layout.addWidget(self.login_button, 1)
         account_group_layout.addWidget(self.logout_button, 1)
-        
+
         account_group.setLayout(account_group_layout)
         account_layout.addWidget(account_group)
         layout.addLayout(account_layout)
@@ -66,28 +114,28 @@ class MainWindow(QWidget):
         # Search section
         search_group = QGroupBox("검색")
         search_layout = QVBoxLayout()
-        
+
         # Search input field
         self.search_input = QLineEdit(self)
-        self.search_input.setPlaceholderText('제품명 입력')
+        self.search_input.setPlaceholderText("제품명 입력")
         self.search_input.returnPressed.connect(self.search_product)
         font = self.search_input.font()
         font.setPointSize(font.pointSize() + 4)
         self.search_input.setFont(font)
         search_layout.addWidget(self.search_input)
-        
+
         # Search buttons layout
         search_input_layout = QHBoxLayout()
-        
-        self.search_button = QPushButton('검색', self)
+
+        self.search_button = QPushButton("검색", self)
         self.search_button.clicked.connect(self.search_product)
         search_input_layout.addWidget(self.search_button)
 
-        self.search_details_button = QPushButton('상세', self)
+        self.search_details_button = QPushButton("상세", self)
         self.search_details_button.setEnabled(False)
         self.search_details_button.clicked.connect(self.product_details)
         search_input_layout.addWidget(self.search_details_button)
-        
+
         search_layout.addLayout(search_input_layout)
         search_group.setLayout(search_layout)
         search_product_layout.addWidget(search_group, 1)
@@ -95,13 +143,13 @@ class MainWindow(QWidget):
         # Product info section
         self.product_info = QTextEdit(self)
         self.product_info.setReadOnly(True)
-        self.product_info.setPlaceholderText('제품 정보가 여기에 표시됩니다.')
+        self.product_info.setPlaceholderText("제품 정보가 여기에 표시됩니다.")
         search_product_layout.addWidget(self.product_info, 3)
 
         # Detail info section
         self.detail_info = QTextEdit(self)
         self.detail_info.setReadOnly(True)
-        self.detail_info.setPlaceholderText('상세 정보가 여기에 표시됩니다.')
+        self.detail_info.setPlaceholderText("상세 정보가 여기에 표시됩니다.")
         search_product_layout.addWidget(self.detail_info, 2)
 
         layout.addLayout(search_product_layout)
@@ -111,37 +159,52 @@ class MainWindow(QWidget):
 
         # Image section
         image_layout = QVBoxLayout()
-        
+
         # Image label
         self.image_label = QLabel()
         self.image_label.setObjectName("image_label")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        screen_geometry = screen.availableGeometry()
-        screen_width = screen_geometry.width()
-        self.image_label.setFixedWidth(screen_width // 3)
-        self.image_label.setFixedHeight(screen_width // 3)
+
+        # 화면 크기 참조하기
+        if screen:
+            screen_geometry = screen.availableGeometry()
+            screen_width = screen_geometry.width()
+            self.image_label.setFixedWidth(screen_width // 3)
+            self.image_label.setFixedHeight(screen_width // 3)
+        else:
+            # 기본 이미지 크기 설정
+            self.image_label.setFixedWidth(400)
+            self.image_label.setFixedHeight(400)
         self.image_label.setScaledContents(True)
         self.image_label.setPixmap(get_logo_pixmap())
 
         # Navigation buttons
         left_icon, right_icon = get_navigation_icons()
-        button_size = get_button_size(screen)
+        # button_size = get_button_size(screen) # button_size_val 사용으로 변경
 
-        self.left_button = QPushButton(left_icon, '', self)
-        self.left_button.setFixedSize(button_size, button_size)
+        self.left_button = QPushButton(left_icon, "", self)
+        self.left_button.setFixedSize(button_size_val, button_size_val)
         self.left_button.clicked.connect(self.previous_result)
         self.left_button.setEnabled(False)
 
-        self.right_button = QPushButton(right_icon, '', self)
-        self.right_button.setFixedSize(button_size, button_size)
+        self.right_button = QPushButton(right_icon, "", self)
+        self.right_button.setFixedSize(button_size_val, button_size_val)
         self.right_button.clicked.connect(self.next_result)
         self.right_button.setEnabled(False)
 
         # Stack image and navigation buttons
         stacked_layout = QHBoxLayout()
-        stacked_layout.addWidget(self.left_button, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        stacked_layout.addWidget(
+            self.left_button,
+            0,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+        )
         stacked_layout.addWidget(self.image_label)
-        stacked_layout.addWidget(self.right_button, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        stacked_layout.addWidget(
+            self.right_button,
+            0,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+        )
 
         image_layout.addLayout(stacked_layout)
         log_image_macro_layout.addLayout(image_layout)
@@ -156,19 +219,12 @@ class MainWindow(QWidget):
         # Size, quantity, and start button in horizontal layout
         macro_controls_layout = QHBoxLayout()
 
-        self.size_combo = QComboBox(self)
-        self.size_combo.setEnabled(False)
-        macro_controls_layout.addWidget(QLabel("사이즈:"))
-        macro_controls_layout.addWidget(self.size_combo)
+        self.macro_status_label = QLabel(
+            "제품 검색 후 상세버튼을 누르면 매크로 시작이 가능합니다.", self
+        )
+        macro_controls_layout.addWidget(self.macro_status_label)
 
-        self.quantity_spin = QSpinBox(self)
-        self.quantity_spin.setRange(1, 10)
-        self.quantity_spin.setValue(1)
-        self.quantity_spin.setEnabled(False)
-        macro_controls_layout.addWidget(QLabel("수량:"))
-        macro_controls_layout.addWidget(self.quantity_spin)
-
-        self.start_button = QPushButton('매크로 시작', self)
+        self.start_button = QPushButton("매크로 시작", self)
         self.start_button.setEnabled(False)
         macro_controls_layout.addWidget(self.start_button)
 
@@ -176,22 +232,12 @@ class MainWindow(QWidget):
         macro_group.setLayout(macro_layout)
         log_macro_layout.addWidget(macro_group)
 
-        # 매크로 진행중 표시 그룹박스 (초기에는 숨김)
-        self.progress_group = QGroupBox("매크로 진행중..")
-        progress_layout = QVBoxLayout()
-        progress_label = QLabel("처리 중입니다. 중지하려면 매크로 중지 버튼을 누르세요.")
-        progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        progress_layout.addWidget(progress_label)
-        self.progress_group.setLayout(progress_layout)
-        self.progress_group.setVisible(False)
-        log_macro_layout.addWidget(self.progress_group)
-
         user_manual = """프로그램 사용 방법 \n
-        1. 우측 상단에 로그인 버튼을 통해 크림 계정에 로그인합니다.\n
-        2. 보관판매를 맡길 제품을 검색합니다.\n
-        3. 검색 버튼 오른쪽에 상세 버튼을 눌러 상세 정보를 불러옵니다.\n
-        4. 매크로 설정 박스에서 옵션을 선택합니다.\n
-        5. 매크로 시작 버튼을 누르면 매크로가 실행됩니다."""
+        1. 우측 상단의 로그인 버튼을 통해 크림 계정에 로그인합니다.\n
+        2. 검색창에서 보관판매를 맡길 제품을 검색합니다.\n
+        3. 검색 버튼 오른쪽에 있는 상세 버튼을 눌러 상세 정보를 불러옵니다.\n
+        4. 매크로 시작 버튼을 누르면 나타나는 팝업창에서 옵션(사이즈, 수량)을 선택합니다.\n
+        5. 팝업창의 시작 버튼을 누르면 매크로가 자동으로 실행됩니다."""
 
         # Log output
         self.log_output = QTextEdit(self)
@@ -203,319 +249,386 @@ class MainWindow(QWidget):
         layout.addLayout(log_image_macro_layout)
         self.setLayout(layout)
 
-    def connectSignals(self):
-        """컨트롤러와 UI 사이의 시그널 연결"""
-        # 컨트롤러로부터 UI로의 시그널 연결
+    def connectSignals(self: MainWindow) -> None:
+        """컨트롤러의 시그널을 UI 요소의 슬롯에 연결합니다."""
         self.controller.login_status_changed.connect(self.handle_login_status)
         self.controller.search_result_received.connect(self.handle_search_result)
         self.controller.details_received.connect(self.handle_details)
         self.controller.sizes_ready.connect(self.update_size_combo)
-        self.controller.log_message.connect(self.append_log)
+        try:
+            self.controller.log_message.disconnect(self.log_message)
+        except TypeError:
+            pass
+        self.controller.log_message.connect(self.log_message)
         self.controller.macro_status_changed.connect(self.handle_macro_status)
-        
-        # UI 액션 버튼 연결
         self.start_button.clicked.connect(self.start_macro)
 
-        # 키보드 이벤트 핸들러 추가
-        self.keyPressEvent = self.handle_key_press
+    def show_login_popup(self: MainWindow) -> None:
+        """로그인 팝업을 표시합니다."""
+        self.login_popup = LoginPopup(self)
+        self.login_popup.login_requested.connect(self.handle_login)
+        self.login_popup.exec()
 
-    def show_login_popup(self):
-        popup = LoginPopup(self)
-        popup.login_requested.connect(self.handle_login)
-        popup.exec()
+    def handle_login(self: MainWindow, user_email: str, password: str) -> None:
+        """로그인 시도를 처리합니다."""
+        self.controller.login(user_email, password)
 
-    def handle_login(self, email, password):
-        self.controller.login(email, password)
-
-    def handle_logout(self):
+    def handle_logout(self: MainWindow) -> None:
+        """로그아웃을 처리합니다."""
         self.controller.logout()
 
-    def update_ui_after_logout(self):
+    def update_ui_after_logout(self: MainWindow) -> None:
+        """로그아웃 후 UI를 업데이트합니다."""
+        self.account_label.setText("크림 계정 로그인이 필요합니다.")
         self.login_button.setVisible(True)
         self.logout_button.setVisible(False)
-        self.account_label.setText("크림 계정 로그인이 필요합니다.")
-        self.start_button.setEnabled(False)
+        self.start_button.setEnabled(False)  # 로그인 안되어있으면 매크로 시작 불가
+        self.search_details_button.setEnabled(False)  # 로그인 풀리면 상세정보 조회 불가
+        self.macro_status_label.setText(
+            "제품 검색 후 상세버튼을 누르면 매크로 시작이 가능합니다."
+        )
 
-    def handle_login_status(self, is_logged_in, message):
+    def handle_login_status(self: MainWindow, is_logged_in: bool, message: str) -> None:
+        """로그인 상태 변경을 처리하고 UI를 업데이트합니다."""
+        self.log_message(message)
         if is_logged_in:
+            self.account_label.setText(
+                f"현재 로그인된 계정: {self.controller.get_current_email()}"
+            )
             self.login_button.setVisible(False)
             self.logout_button.setVisible(True)
-            
-            # Extract email from message and mask it
-            email = message.split("크림에 ")[1].split(" 계정으로")[0] if "크림에 " in message else ""
-            masked_email = self.controller.mask_email(email)
-            self.account_label.setText(f"계정: {masked_email}")
-            self.log_output.append(f"{masked_email} 계정으로 로그인 되었습니다.")
-
-            # 로그인 성공 후 상세 정보 조회 기능 활성화
-            if self.search_details_button.isEnabled():
-                self.product_details()
+            # 로그인 성공 시 매크로 시작 버튼의 활성화 여부는 제품 선택 및 상세 정보 로드 유무에 따라 결정
+            self.start_button.setEnabled(bool(self.controller.current_product_id))
+            # 로그인 팝업이 열려있으면 닫기
+            if hasattr(self, "login_popup") and self.login_popup.isVisible():
+                self.login_popup.accept()
         else:
             self.update_ui_after_logout()
 
-    def search_product(self):
+    def search_product(self: MainWindow) -> None:
+        """제품 검색을 시작합니다."""
         query = self.search_input.text()
         if query:
+            print(f"[DEBUG UI] 검색 요청: '{query}'")
+
+            # UI 초기화
+            self.left_button.setEnabled(False)  # 새 검색 시 탐색 버튼 초기화
+            self.right_button.setEnabled(False)
+            self.search_details_button.setEnabled(False)  # 새 검색 시 상세 버튼 초기화
+            self.start_button.setEnabled(False)  # 새 검색 시 매크로 시작 버튼 비활성화
+            self.macro_status_label.setText(
+                "제품 검색 후 상세버튼을 누르면 매크로 시작이 가능합니다."
+            )
+            self.product_info.setPlainText(f"'{query}' 검색 중...")
+
+            # 컨트롤러에 검색 요청
             self.controller.search_product(query)
-            # Reset macro settings when new search is performed
-            self.size_combo.setEnabled(False)
-            self.quantity_spin.setEnabled(False)
-            self.start_button.setEnabled(False)
-            # Re-enable the detail button when a new search is performed
-            self.search_details_button.setEnabled(True)
+        else:
+            print("[DEBUG UI] 검색어 없음")
+            self.log_message("검색어를 입력해주세요.")
 
-    def next_result(self):
+    def next_result(self: MainWindow) -> None:
+        """다음 검색 결과를 요청합니다."""
         self.controller.next_result()
-        # Enable the detail button when navigating to a different result
-        self.search_details_button.setEnabled(True)
 
-    def previous_result(self):
+    def previous_result(self: MainWindow) -> None:
+        """이전 검색 결과를 요청합니다."""
         self.controller.previous_result()
-        # Enable the detail button when navigating to a different result
-        self.search_details_button.setEnabled(True)
 
-    def product_details(self):
-        if not self.controller.is_logged_in():
-            self.log_output.append("로그인이 필요합니다. 로그인해주세요.")
-            self.show_login_popup()
-            return
-        
-        # Disable the detail button to prevent multiple clicks
-        self.search_details_button.setEnabled(False)
-        self.controller.get_product_details()
-
-    def append_log(self, text: str):
-        # 매크로로부터 온 로그 메시지 출력
-        self.log_output.append(text)
-
-    def update_size_combo(self, sizes):
-        self.size_combo.clear()
-        if sizes:
-            self.size_combo.addItems(sizes)
-            self.size_combo.setEnabled(True)
-            self.quantity_spin.setEnabled(True)
-            if self.controller.is_logged_in():
-                self.start_button.setEnabled(True)
-        else:
-            self.size_combo.setEnabled(False)
-            self.quantity_spin.setEnabled(False)
+    def product_details(self: MainWindow) -> None:
+        """제품 상세 정보를 요청합니다."""
+        # 브랜드 공식 배송 상품인 경우 처리
+        if (
+            hasattr(self, "current_product_is_official")
+            and self.current_product_is_official
+        ):
+            error_message = "브랜드 배송 상품입니다. 보관판매가 불가능합니다."
+            self.log_message(error_message)
+            self.detail_info.setPlainText(error_message)
+            # 매크로 시작 버튼 비활성화
             self.start_button.setEnabled(False)
-
-    def handle_search_result(self, result):
-        if "error" in result:
-            self.product_info.setText(result["error"])
-            # 이전/다음 버튼 활성화 상태 업데이트
-            self.left_button.setEnabled(result.get("enable_prev", False))
-            self.right_button.setEnabled(result.get("enable_next", False))
+            self.macro_status_label.setText(
+                "브랜드 배송 상품은 매크로 실행이 불가능합니다."
+            )
             return
-            
-        current_time = datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
-        product_text = ""
-        
-        # 브랜드배송 메시지를 먼저 추가
-        if result.get('is_brand'):
-            product_text += "보관판매가 불가능한 브랜드배송 제품입니다.\n\n"
-            self.search_details_button.setEnabled(False)
+
+        # 일반 상품 처리
+        if self.controller.get_product_details():
+            # 상세 정보 요청 성공 시, handle_details에서 start_button 활성화 예정
+            pass
         else:
-            # Only enable the detail button if it's not a brand product and we're in a new search
-            self.search_details_button.setEnabled(True)
-        
-        product_text += f"{result.get('name', '')}\n"
-        product_text += f"{result.get('translated_name', '')}\n"
-        product_text += f"[{current_time} 기준]\n"
-        product_text += f"최저구매가: {result.get('price', '')}\n"
-        product_text += f"누적거래량: {result.get('status_value', '').strip()}건"
+            self.log_message(
+                "제품 상세 정보를 가져올 수 없습니다. 먼저 로그인하고 제품을 선택하세요."
+            )
 
-        # 이전/다음 버튼 활성화 상태 업데이트
-        self.left_button.setEnabled(result.get("enable_prev", False))
-        self.right_button.setEnabled(result.get("enable_next", False))
+    def log_message(self: MainWindow, message: str) -> None:
+        """로그 메시지를 UI에 표시합니다."""
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        formatted_message = f"[{current_time}] {message}"
+        current_text = self.log_output.toPlainText()
 
-        # Reset detail info and macro settings when changing products
-        self.detail_info.clear()
-        self.size_combo.setEnabled(False)
-        self.quantity_spin.setValue(1)
-        self.start_button.setEnabled(False)  # Always disable macro button after search
+        if not current_text or formatted_message not in current_text:
+            self.log_output.append(formatted_message)
 
-        if result.get('additional_info'):
-            product_text += f"\n{result.get('additional_info')}"
-            self.search_details_button.setEnabled(False)
+    def update_size_combo(self: MainWindow, sizes: list[str]) -> None:
+        """제품 사이즈 정보를 받아 콤보박스를 업데이트합니다."""
+        # 사이즈 및 수량 선택 UI가 제거되었으므로, 이 함수는 주로 매크로 시작 버튼 활성화 로직을 담당.
+        # 단, 현재는 handle_details에서 직접 start_button을 활성화하도록 변경 고려.
+        # 여기서는 일단, 상세 정보가 성공적으로 로드되었음을 가정하고 (sizes 인자는 이제 사용 안함)
+        # 매크로 시작 버튼을 활성화하고 메시지를 업데이트.
+        if self.controller.is_logged_in() and self.controller.current_product_id:
+            self.start_button.setEnabled(True)
+            self.macro_status_label.setText("매크로 시작이 가능합니다.")
+        else:
+            self.start_button.setEnabled(False)
+            self.macro_status_label.setText(
+                "제품 검색 후 상세버튼을 누르면 매크로 시작이 가능합니다."
+            )
+        # 기존 size_combo, quantity_spin 관련 코드는 제거됨.
+
+    def handle_search_result(self: MainWindow, result: dict[str, Any]) -> None:
+        """검색 결과를 처리하고 UI에 표시합니다."""
+        if not result:
+            self.log_message("검색 결과가 없습니다.")
+            self.product_info.setPlainText("검색 결과가 없습니다.")
+            self.image_label.setPixmap(get_logo_pixmap())
             self.left_button.setEnabled(False)
             self.right_button.setEnabled(False)
-
-        self.product_info.setText(product_text)
-
-        if result.get('image'):
-            self.image_label.setPixmap(result['image'])
-            self.image_label.setScaledContents(True)
-
-    def handle_details(self, details):
-        if "error" in details:
-            self.detail_info.append(f"상세 정보 조회 실패: {details['error']}")
-            self.size_combo.setEnabled(False)
-            self.quantity_spin.setEnabled(False)
+            self.search_details_button.setEnabled(False)
             self.start_button.setEnabled(False)
+            self.macro_status_label.setText(
+                "제품 검색 후 상세버튼을 누르면 매크로 시작이 가능합니다."
+            )
             return
 
-        info_text = ""
-        
-        # Model number and color line
-        model_no = details.get('model_no', 'N/A').strip()
-        color = details.get('color', 'N/A').strip()
-        if model_no != '-' and color != '-':
-            info_text += f"{model_no} — {color}<br>"
-        elif model_no != '-' or color != '-':
-            info_text += f"{model_no if model_no != '-' else ''}{color if color != '-' else ''}<br>"
-        
-        # Release date with D-day
-        release_date = details.get('release_date', 'N/A').strip()
-        d_day = details.get('d_day', '')
-        
-        if release_date != 'N/A' and release_date != '-':
-            try:
-                year, month, day = release_date.split('/')
-                # D-day 정보 추가
-                d_day_color = "black"
-                if d_day.startswith(" (D-") and not d_day.startswith(" (D-DAY"):
-                    d_day_color = "blue"  # 앞으로 다가올 출시일은 파란색
-                elif d_day.startswith(" (D+"):
-                    d_day_color = "green"  # 이미 지난 출시일은 초록색
-                elif d_day.startswith(" (D-DAY"):
-                    d_day_color = "red"  # 당일 출시는 빨간색
-                
-                info_text += f"20{year}년 {month}월 {day}일 출시<span style='color: {d_day_color};'>{d_day}</span><br>"
-            except:
-                info_text += f"{release_date} 출시<span style='color: black;'>{d_day}</span><br>"
-        
-        # Release price
-        release_price = details.get('release_price', 'N/A').strip()
-        if release_price != 'N/A':
-            info_text += f"발매 정가    {release_price}<br>"
-        
-        # Recent price
-        recent_price = details.get('recent_price', 'N/A')
-        if recent_price != 'N/A':
-            info_text += f"최근 거래가 {recent_price}원<br>"
-        
-        # Price fluctuation
-        fluctuation = details.get('fluctuation', 'N/A')
-        if fluctuation != 'N/A':
-            fluctuation_type = details.get('fluctuation_type', '')
-            if fluctuation_type == 'increase':
-                info_text += f"<span style='color: red;'>{fluctuation}</span>"
-            elif fluctuation_type == 'decrease':
-                info_text += f"<span style='color: green;'>{fluctuation}</span>"
-            else:
-                info_text += fluctuation
-        
-        self.detail_info.setHtml(info_text)
-        
-        # Update size combo box with available sizes
-        if 'sizes' in details and details['sizes']:
-            self.size_combo.clear()
-            self.size_combo.addItems(details['sizes'])
-            self.size_combo.setEnabled(True)
-            self.quantity_spin.setEnabled(True)
-            if self.controller.is_logged_in():
-                # 매크로 시작 버튼 활성화 및 연결
-                self.start_button.setEnabled(True)
-                try:
-                    self.start_button.clicked.disconnect()
-                except TypeError:
-                    pass
-                self.start_button.clicked.connect(self.start_macro)
-                self.start_button.setText('매크로 시작')
-        else:
-            self.size_combo.setEnabled(False)
-            self.quantity_spin.setEnabled(False)
+        if "error" in result:
+            error_msg = result["error"]
+            self.log_message(error_msg)
+            self.product_info.setPlainText(error_msg)
+            self.image_label.setPixmap(get_logo_pixmap())
+            self.left_button.setEnabled(result.get("enable_prev", False))
+            self.right_button.setEnabled(result.get("enable_next", False))
+            self.search_details_button.setEnabled(False)
             self.start_button.setEnabled(False)
+            self.macro_status_label.setText(
+                "제품 검색 후 상세버튼을 누르면 매크로 시작이 가능합니다."
+            )
+            return
 
-    def handle_key_press(self, event):
-        if event.key() == Qt.Key.Key_Left:
-            self.previous_result()
-        elif event.key() == Qt.Key.Key_Right:
-            self.next_result()
+        if "info" in result:
+            info_msg = result["info"]
+            self.log_message(info_msg)
+            self.left_button.setEnabled(result.get("enable_prev", False))
+            self.right_button.setEnabled(result.get("enable_next", False))
+            self.search_details_button.setEnabled(False)
+            self.start_button.setEnabled(False)
+            self.macro_status_label.setText(
+                "제품 검색 후 상세버튼을 누르면 매크로 시작이 가능합니다."
+            )
+            return
 
-    def start_macro(self):
-        """매크로 시작 UI 핸들러"""
-        size = self.size_combo.currentText()
-        quantity = self.quantity_spin.value()
-        
-        if self.controller.start_macro(size, quantity):
-            # 버튼 상태 변경
-            self.start_button.setText("매크로 중지")
+        name = result.get("name", "이름 없음")
+        name_kr = result.get("translated_name", "한국어 이름 없음")
+        brand = result.get("brand", "브랜드 없음")
+        product_id = result.get("id", "ID 없음")
+        wish_figure = result.get("wish_figure")
+        review_figure = result.get("review_figure")
+        is_brand_official = result.get("is_brand_official", False)
+
+        self.current_product_is_official = is_brand_official
+
+        wish_text = f"관심 {wish_figure}" if wish_figure else ""
+        review_text = f"리뷰 {review_figure}" if review_figure else ""
+
+        stats_text = ""
+        if wish_text and review_text:
+            stats_text = f"{wish_text} · {review_text}"
+        elif wish_text:
+            stats_text = wish_text
+        elif review_text:
+            stats_text = review_text
+
+        self.product_info.setPlainText(
+            f"{brand}\n{name}\n{name_kr}\n{stats_text}\n[{product_id}]"
+        )
+
+        image_url = result.get("image_url")
+        if image_url:
             try:
-                self.start_button.clicked.disconnect()
-            except TypeError:
-                pass
-            self.start_button.clicked.connect(self.stop_macro)
+                import requests
+                from PyQt6.QtGui import QPixmap
 
-            # 진행중 표시 활성화
-            self.progress_group.setVisible(True)
+                response = requests.get(image_url, timeout=5)
+                image_data = response.content
+                pixmap = QPixmap()
+                success = pixmap.loadFromData(image_data)
 
-            # 다른 UI 요소 비활성화
-            self.disable_ui_controls()
+                if success and not pixmap.isNull():
+                    self.image_label.setPixmap(pixmap)
+                else:
+                    self.image_label.setPixmap(get_logo_pixmap())
+            except Exception:
+                self.image_label.setPixmap(get_logo_pixmap())
+        else:
+            self.image_label.setPixmap(get_logo_pixmap())
 
-    def stop_macro(self):
-        """매크로 중지 UI 핸들러"""
+        is_logged_in = self.controller.is_logged_in()
+        self.search_details_button.setEnabled(is_logged_in)
+
+        has_previous = result.get("enable_prev", False)
+        has_next = result.get("enable_next", False)
+        self.left_button.setEnabled(has_previous)
+        self.right_button.setEnabled(has_next)
+
+        self.start_button.setEnabled(False)
+        self.macro_status_label.setText("상세 버튼을 눌러 제품 상세 정보를 확인하세요.")
+
+    def handle_details(self: MainWindow, details: dict[str, Any]) -> None:
+        """제품 상세 정보를 처리하고 UI에 표시합니다."""
+        if not details:
+            self.log_message("상세 정보를 가져오는데 실패했습니다.")
+            self.detail_info.setPlainText("상세 정보를 가져올 수 없습니다.")
+            self.start_button.setEnabled(False)
+            self.macro_status_label.setText("상세 정보 로드 실패. 매크로 실행 불가.")
+            return
+
+        model_no = details.get("model_no", "N/A")
+        color = details.get("color", "N/A")
+
+        detail_text = f"{model_no} — {color}\n"
+        detail_text += f"최근 거래가: {details.get('recent_price', 'N/A')}원 "
+        detail_text += f"{details.get('fluctuation', 'N/A')}\n"
+        detail_text += f"발매 정가: {details.get('release_price', 'N/A')}"
+
+        recent_price = details.get("recent_price", "N/A")
+        release_price = details.get("release_price", "N/A")
+
+        try:
+            if recent_price != "N/A" and release_price != "N/A":
+                cleaned_recent = recent_price.replace(",", "").replace("원", "").strip()
+
+                cleaned_release = release_price
+
+                import re
+
+                won_in_parenthesis = re.search(
+                    r"\((?:약\s*)?([0-9,]+)원?\)", release_price
+                )
+
+                if won_in_parenthesis:
+                    cleaned_release = won_in_parenthesis.group(1).replace(",", "")
+                else:
+                    cleaned_release = (
+                        release_price.replace(",", "")
+                        .replace("원", "")
+                        .replace("$", "")
+                        .strip()
+                    )
+
+                recent_value = float(cleaned_recent)
+                release_value = float(cleaned_release)
+
+                if release_value > 0:
+                    premium_percentage = (recent_value / release_value) * 100 - 100
+                    detail_text += f"({premium_percentage:.1f}% 프리미엄)\n"
+                else:
+                    detail_text += "(프리미엄 계산 불가)\n"
+            else:
+                detail_text += "(프리미엄 정보 없음)\n"
+        except (TypeError, ValueError, ZeroDivisionError):
+            detail_text += "(프리미엄 계산 불가)\n"
+
+        detail_text += f"발매일: {details.get('release_date', 'N/A')}"
+        detail_text += f"{details.get('d_day', '')}\n"
+
+        self.detail_info.setPlainText(detail_text.strip())
+
+        if self.controller.is_logged_in() and self.controller.current_product_id:
+            self.start_button.setEnabled(True)
+            self.macro_status_label.setText("매크로 시작이 가능합니다.")
+        else:
+            self.start_button.setEnabled(False)
+            self.macro_status_label.setText(
+                "제품 검색 후 상세버튼을 누르면 매크로 시작이 가능합니다."
+            )
+
+    def keyPressEvent(self: MainWindow, event: QKeyEvent) -> None:
+        """키 입력 이벤트를 처리합니다."""
+        if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
+            if self.search_input.hasFocus():
+                self.search_product()
+
+    def start_macro(self: MainWindow) -> None:
+        """매크로 시작 버튼 클릭 시 호출됩니다."""
+        if not self.controller.is_logged_in():
+            self.log_message("로그인이 필요합니다.")
+            return
+
+        if self.controller.start_macro():
+            self.log_message("매크로 시작 요청됨.")
+            self.macro_status_label.setText("매크로 진행 중...")
+        else:
+            self.log_message("매크로 시작 요청 실패. 컨트롤러 로그를 확인하세요.")
+            self.macro_status_label.setText("매크로 시작 실패.")
+
+    def stop_macro(self: MainWindow) -> None:
+        """매크로 중지 버튼 클릭 시 호출됩니다."""
         if self.controller.stop_macro():
-            # 버튼 상태는 매크로 상태 변경 핸들러(handle_macro_status)에서 처리됨
-            pass
+            self.log_message("매크로 중지 요청됨.")
+        else:
+            self.log_message("매크로 중지 요청 실패. 컨트롤러 로그를 확인하세요.")
+            self.macro_status_label.setText("매크로 중지 실패.")
 
-    def disable_ui_controls(self):
-        """매크로 실행 중 UI 컨트롤 비활성화"""
-        # 검색 관련
+    def disable_ui_controls(self: MainWindow) -> None:
+        """매크로 실행 중 UI 컨트롤을 비활성화합니다."""
         self.search_input.setEnabled(False)
         self.search_button.setEnabled(False)
         self.search_details_button.setEnabled(False)
         self.left_button.setEnabled(False)
         self.right_button.setEnabled(False)
-
-        # 계정 관련
         self.login_button.setEnabled(False)
         self.logout_button.setEnabled(False)
 
-        # 매크로 설정 관련
-        self.size_combo.setEnabled(False)
-        self.quantity_spin.setEnabled(False)
-
-    def enable_ui_controls(self):
-        """매크로 종료 후 UI 컨트롤 다시 활성화"""
-        # 검색 관련
+    def enable_ui_controls(self: MainWindow) -> None:
+        """매크로 종료 후 UI 컨트롤을 활성화합니다."""
         self.search_input.setEnabled(True)
         self.search_button.setEnabled(True)
-
-        # 현재 선택된 제품이 있는 경우에만 상세 버튼 활성화
-        if hasattr(self.controller, 'current_product') and self.controller.current_product:
-            self.search_details_button.setEnabled(True)
-            self.left_button.setEnabled(self.controller.has_previous_result())
-            self.right_button.setEnabled(self.controller.has_next_result())
-
-        # 계정 관련
         self.login_button.setEnabled(True)
-        self.logout_button.setEnabled(True)
+        self.logout_button.setEnabled(
+            self.controller.is_logged_in()
+        )  # 로그인 상태에 따라 결정
+        self.login_button.setVisible(not self.controller.is_logged_in())
 
-        # 매크로 설정 관련 (사이즈가 있는 경우에만 활성화)
-        if self.size_combo.count() > 0:
-            self.size_combo.setEnabled(True)
-            self.quantity_spin.setEnabled(True)
-
-        # 진행중 표시 비활성화
-        self.progress_group.setVisible(False)
-
-    def handle_macro_status(self, status):
-        if status:
-            self.start_button.setText('매크로 중지')
+    def handle_macro_status(self: MainWindow, status: bool) -> None:
+        """매크로 상태 변경을 처리하고 UI를 업데이트합니다."""
+        self.macro_running = status
+        if status:  # 매크로 시작됨
+            self.log_message("매크로가 시작되었습니다.")
+            self.start_button.setText("매크로 중지")
             try:
-                self.start_button.clicked.disconnect()
+                self.start_button.clicked.disconnect(self.start_macro)
             except TypeError:
                 pass
             self.start_button.clicked.connect(self.stop_macro)
-        else:
-            self.start_button.setText('매크로 시작')
+            self.disable_ui_controls()
+            self.macro_status_label.setText("매크로 진행 중...")
+        else:  # 매크로 중지됨
+            self.log_message("매크로가 중지되었습니다.")
+            self.start_button.setText("매크로 시작")
             try:
-                self.start_button.clicked.disconnect()
+                self.start_button.clicked.disconnect(self.stop_macro)
             except TypeError:
                 pass
             self.start_button.clicked.connect(self.start_macro)
             self.enable_ui_controls()
-        self.start_button.setEnabled(True)
+            # 매크로 종료 시, 시작 버튼은 현재 제품 및 로그인 상태에 따라 결정
+            is_ready_to_start = self.controller.is_logged_in() and bool(
+                self.controller.current_product_id
+            )
+            self.start_button.setEnabled(is_ready_to_start)
+            if is_ready_to_start:
+                self.macro_status_label.setText("매크로 시작이 가능합니다.")
+            else:
+                self.macro_status_label.setText(
+                    "제품 검색 후 상세버튼을 누르면 매크로 시작이 가능합니다."
+                )

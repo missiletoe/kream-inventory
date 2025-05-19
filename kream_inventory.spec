@@ -11,8 +11,8 @@ hidden_imports = collect_submodules('src.kream_inventory')
 datas = collect_data_files('src.kream_inventory', include_py_files=False)
 
 # 필요한 데이터 파일 직접 추가 (예: config.ini)
-if os.path.exists('src/kream_inventory/config.ini'):
-    datas.append(('src/kream_inventory/config.ini', 'kream_inventory'))
+if os.path.exists('src/config.ini'):
+    datas.append(('src/config.ini', 'src'))
 
 # 애셋 디렉토리가 있다면 추가
 if os.path.isdir('src/kream_inventory/assets'):
@@ -63,6 +63,6 @@ app = BUNDLE(
     bundle_identifier='com.missiletoe.kream_inventory',
     info_plist={
         'NSHighResolutionCapable': 'True',
-        'CFBundleShortVersionString': '0.2.0',
+        'CFBundleShortVersionString': '0.2.1',
     },
 )

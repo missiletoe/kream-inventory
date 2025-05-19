@@ -1,6 +1,7 @@
 .DS_Store
 .idea
 .vscode
+.cursor
 
 # Python virtual environment
 .venv
@@ -20,7 +21,7 @@ dist/
 *.spec.pyd
 .Python
 
-# Electron
-electron_app/
-
 references
+src_old
+
+debug_log.txt
