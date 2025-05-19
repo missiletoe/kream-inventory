@@ -293,10 +293,9 @@ class MacroPlugin(PluginBase, QObject):
                                     f"{wait_sec}초 대기 ({delay_reason}, 누적: {total_wait_time + wait_sec}초)",
                                     allowed_key="WAIT")
 
-                                # 초 단위로 대기하면서 중단 여부 확인
-                                for i in range(wait_sec * 5):
-                                    if not self._running: break
-
+        self.log_handler.log(f"재시도 대기 중... ({wait_time:.1f}초)", allowed_key="WAIT")
+        return wait_time
+        
                                 if self._running:
                                     total_wait_time += wait_sec
 
@@ -887,8 +886,8 @@ class MacroPlugin(PluginBase, QObject):
             MacroExceptions.handle_general_exception(self.browser, self.log_handler, e, "신청 진행")
             return False
 
-    def _process_payment_page(self, current_url=None):
-        """결제 페이지 처리"""
+    def _process_payment_page(self):
+        self.log_handler.log("결제/최종 확인 페이지 처리 시도", allowed_key="PROCESS_PAYMENT")
         try:
             # 먼저 성공 페이지인지 확인 (빠른 확인)
             if self._check_if_success_page():
