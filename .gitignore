@@ -1,7 +1,15 @@
+# macOS
 .DS_Store
+
+# IDE
 .idea
 .vscode
+
+# Cursor
 .cursor
+.cursorrules
+.cursorignore
+.cursorignorerules
 
 # Python virtual environment
 .venv
@@ -14,6 +22,9 @@ __pycache__/
 # PyInstaller
 *.spec
 *.egg-info
+
+# MyPy
+.mypy_cache/
 
 # Distribution / packaging
 build/
