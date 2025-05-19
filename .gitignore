@@ -1,6 +1,15 @@
+# macOS
 .DS_Store
+
+# IDE
 .idea
 .vscode
+
+# Cursor
+.cursor
+.cursorrules
+.cursorignore
+.cursorignorerules
 
 # Python virtual environment
 .venv
@@ -9,18 +18,18 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.spec.pyd
+.Python
+*.log
+debug_log.txt
 
 # PyInstaller
 *.spec
 *.egg-info
 
-# Distribution / packaging
+# MyPy
+.mypy_cache/
+
 build/
-dist/
-*.spec.pyd
-.Python
-
-# Electron
-electron_app/
-
 references
+src_old

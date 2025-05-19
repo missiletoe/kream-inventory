@@ -1,12 +1,20 @@
-# PyQt6 for GUI
-PyQt6>=6.7.0
+# GUI
+PyQt6>=6.9.0
 
-# Selenium for web automation
-selenium>=4.15.2
-
-# Requests for HTTP requests
-requests>=2.31.0
-
-# Chromedriver auto-installer
+# Web Automation
+selenium>=4.32.0
 chromedriver-autoinstaller>=0.6.4
-webdriver-manager>=4.0.1
+webdriver-manager>=4.0.2
+
+# HTTP Requests
+requests>=2.32.3
+
+# Lint
+black>=25.1.0
+mypy>=1.15.0
+flake8>=7.2.0
+flake8-docstrings>=1.7.0
+flake8-pyproject>=1.2.3
+
+# Build
+PyInstaller>=6.13.0
