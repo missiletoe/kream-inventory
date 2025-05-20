@@ -1,4 +1,5 @@
 # macOS
+
 .DS_Store
 
 # IDE
@@ -31,5 +32,7 @@ debug_log.txt
 .mypy_cache/
 
 build/
+dist/
+
 references
 src_old
