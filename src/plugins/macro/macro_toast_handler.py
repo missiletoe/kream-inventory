@@ -24,7 +24,7 @@ class MacroToastHandler(QObject):
 
     log_message_signal = pyqtSignal(str)
     last_toast_message = ""
-    last_toast_time = 0
+    last_toast_time = 0.0
 
     def __init__(
         self: "MacroToastHandler",
