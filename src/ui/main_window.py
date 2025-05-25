@@ -1,15 +1,8 @@
-"""UI 클래스.
-
-- 로그인 팝업
-- 검색 팝업
-- 상세 팝업
-- 매크로 팝업
-- 매크로 진행중 팝업
-- 매크로 완료 팝업
-"""
+"""메인 윈도우 UI 클래스입니다."""
 
 from __future__ import annotations
 
+import logging  # noqa: F401 # 로깅 모듈 임포트 (setup_logger 내부에서 사용될 수 있음)
 from datetime import datetime
 from typing import Any
 
@@ -29,6 +22,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+# logger_setup 임포트
+from src.core.logger_setup import setup_logger
+
 from ..core.main_controller import MainController
 from ..core.plugin_manager import PluginManager
 from .image_assets import (
@@ -38,6 +34,9 @@ from .image_assets import (
     get_window_icon,
 )
 from .login_popup import LoginPopup
+
+# 전역 로거 설정
+logger = setup_logger(__name__)
 
 
 class MainWindow(QWidget):
@@ -311,7 +310,7 @@ class MainWindow(QWidget):
         """제품 검색을 시작합니다."""
         query = self.search_input.text()
         if query:
-            print(f"[DEBUG UI] 검색 요청: '{query}'")
+            logger.debug(f"UI 검색 요청: '{query}'")  # print -> logger.debug
 
             # UI 초기화
             self.left_button.setEnabled(False)  # 새 검색 시 탐색 버튼 초기화
@@ -326,7 +325,7 @@ class MainWindow(QWidget):
             # 컨트롤러에 검색 요청
             self.controller.search_product(query)
         else:
-            print("[DEBUG UI] 검색어 없음")
+            logger.debug("UI 검색어 없음")  # print -> logger.debug
             self.log_message("검색어를 입력해주세요.")
 
     def next_result(self: MainWindow) -> None:

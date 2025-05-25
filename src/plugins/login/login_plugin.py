@@ -5,22 +5,15 @@
 
 from __future__ import annotations
 
-import time
 from typing import TYPE_CHECKING, Optional
 
 from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtWidgets import QMessageBox
 from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from src.core.plugin_base import PluginBase
 from src.plugins.login.login_manager import LoginManager
-from src.plugins.macro.macro_toast_handler import (
-    MacroToastHandler,
-)  # noqa: E501, F401
+from src.plugins.macro.macro_toast_handler import MacroToastHandler  # noqa: E501, F401
 
 if TYPE_CHECKING:
     from configparser import ConfigParser
@@ -51,6 +44,8 @@ class LoginPlugin(PluginBase, QObject):
         )
         QObject.__init__(self)
         actual_browser_driver: WebDriver = browser.get_driver()
+        # LoginManager 인스턴스 생성
+        self.login_manager = LoginManager(actual_browser_driver)
         # click_term 기본값 설정
         default_click_term = 8
         click_term = config.getint("Macro", "min_interval", fallback=default_click_term)
@@ -60,73 +55,28 @@ class LoginPlugin(PluginBase, QObject):
 
     def login(self: "LoginPlugin", email: str, password: str) -> None:
         """크림 웹사이트에 로그인을 시도합니다."""
-        valid, msg = LoginManager.validate_credentials(email, password)
-        if not valid:
-            error_msg = f"로그인 실패: {msg}"
-            QMessageBox.warning(None, "로그인 형식 오류", error_msg)
-            self.login_status.emit(False, error_msg)
-            return
-
+        # 로그인 페이지로 이동
         login_url = "https://kream.co.kr/login"
         self.browser.get_driver().get(login_url)
 
-        try:
-            wait = WebDriverWait(self.browser.get_driver(), 3)
-            email_input = self.browser.get_driver().find_element(
-                By.CSS_SELECTOR, 'input[type="email"]'
-            )
-            password_input = self.browser.get_driver().find_element(
-                By.CSS_SELECTOR, 'input[type="password"]'
-            )
-            email_input.clear()
-            email_input.send_keys(email)
-            password_input.clear()
-            password_input.send_keys(password)
+        # LoginManager를 사용하여 로그인 수행
+        login_success = self.login_manager.login(email, password)
 
-            wait.until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "div.login-btn-box"))
-            ).click()
-            time.sleep(2)
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
-
-            # 로그인 성공 여부 확인
-            current_url = self.browser.get_driver().current_url
-            if "login" not in current_url:
-                self.login_status.emit(True, "로그인 성공")
-            else:
-                # 로그인 페이지에 머물러 있는 경우 오류 메시지 확인
-                error_msgs = self.browser.get_driver().find_elements(
-                    By.CSS_SELECTOR, ".input_error"
-                )
-                if error_msgs and any(msg.is_displayed() for msg in error_msgs):
-                    error_text = next(
-                        (msg.text for msg in error_msgs if msg.is_displayed()),
-                        "이메일 또는 비밀번호가 잘못되었습니다.",
-                    )
-                    self.login_status.emit(False, f"로그인 실패: {error_text}")
-                else:
-                    self.login_status.emit(False, "로그인 실패: 알 수 없는 오류")
-            return
-
-        except TimeoutException:
-            self.login_status.emit(
-                False, "로그인 실패: 이메일 또는 비밀번호를 확인해주세요."
-            )
+        # 로그인 결과 처리
+        if login_success:
+            self.login_status.emit(True, "로그인 성공")
+        else:
+            self.login_status.emit(False, "로그인 실패")
 
     def logout(self: "LoginPlugin") -> None:
         """크림 웹사이트에서 로그아웃을 시도합니다."""
-        logout_url = "https://kream.co.kr/logout"
-        landing_url = "https://kream.co.kr/"
         try:
-            self.browser.get_driver().get(logout_url)
-
-            wait = WebDriverWait(self.browser.get_driver(), 5)
-            wait.until(EC.url_to_be(landing_url))
-            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-
-        except TimeoutException:
-            raise TimeoutException(
-                "로그아웃 실패: 로그아웃 페이지에 접속할 수 없습니다."
-            )
+            logout_success = self.login_manager.logout()
+            if not logout_success:
+                raise TimeoutException(
+                    "로그아웃 실패: 로그아웃 처리가 완료되지 않았습니다."
+                )
+        except TimeoutException as e:
+            raise TimeoutException(str(e))
         except Exception as e:
             raise Exception(f"로그아웃 실패: {str(e)}") from e

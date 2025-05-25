@@ -15,7 +15,7 @@ echo "🧹 린트 검사 실행 중..."
 ./lint.sh
 
 echo "🚀 PyInstaller로 빌드 중..."
-pyinstaller kream_inventory.spec
+pyinstaller --noconfirm kream_inventory.spec
 
 echo "🔏 보안 속성 해제 및 앱 서명 중..."
 sudo xattr -rd com.apple.quarantine dist/kream_inventory.app

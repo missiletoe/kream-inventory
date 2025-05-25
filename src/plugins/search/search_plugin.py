@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging  # noqa: F401 # 로깅 모듈 임포트
 import time
 import urllib.parse
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -19,14 +20,18 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from src.core.browser import BrowserManager
+
+# logger_setup 임포트
+from src.core.logger_setup import setup_logger
 from src.core.plugin_base import PluginBase
 
 if TYPE_CHECKING:
     from configparser import ConfigParser
 
-    from src.core.plugin_manager import (
-        PluginManager as CorePluginManager,
-    )
+    from src.core.plugin_manager import PluginManager as CorePluginManager
+
+# 전역 로거 설정
+logger = setup_logger(__name__)
 
 
 class SearchPlugin(PluginBase, QObject):
@@ -70,26 +75,54 @@ class SearchPlugin(PluginBase, QObject):
         Returns:
             Webdriver 인스턴스입니다.
         """
+        if self.driver is not None:
+            try:
+                _ = self.driver.current_url  # Check if driver is still responsive
+                return self.driver
+            except WebDriverException:
+                logger.warning("기존 WebDriver 세션이 유효하지 않아 새로 초기화합니다.")
+                self.driver = None
+
         if isinstance(self.browser, BrowserManager):
             try:
                 active_driver = self.browser.get_driver()
                 if active_driver:
-                    return active_driver
-                print("[ERROR] BrowserManager.get_driver()가 None을 반환했습니다")
+                    self.driver = active_driver
+                    return self.driver
+                logger.error("BrowserManager.get_driver()가 None을 반환했습니다.")
             except Exception as e:
-                print(f"[ERROR] BrowserManager.get_driver() 호출 중 오류 발생: {e}")
+                logger.error(
+                    f"BrowserManager.get_driver() 호출 중 오류 발생: {e}", exc_info=True
+                )
 
-        # 여기에 도달하면 BrowserManager가 제대로 작동하지 않는 것입니다
-        if hasattr(self, "plugin_manager") and self.plugin_manager:
-            print("[DEBUG] 플러그인 매니저에서 브라우저 다시 가져오기 시도")
-            try:
-                self.browser = self.plugin_manager.browser
-                if isinstance(self.browser, BrowserManager):
-                    return self.browser.get_driver()
-            except Exception as e:
-                print(f"[ERROR] 플러그인 매니저에서 브라우저 가져오기 실패: {e}")
+        if (
+            hasattr(self, "plugin_manager")
+            and self.plugin_manager
+            and self.plugin_manager.browser
+        ):
+            logger.debug("플러그인 매니저를 통해 브라우저 재시도")
+            # plugin_manager.browser가 BrowserManager 인스턴스인지 확인
+            if isinstance(self.plugin_manager.browser, BrowserManager):
+                self.browser = self.plugin_manager.browser  # self.browser 업데이트
+                try:
+                    active_driver = self.browser.get_driver()
+                    if active_driver:
+                        self.driver = active_driver
+                        return self.driver
+                    logger.error(
+                        "플러그인 매니저 통해 BrowserManager.get_driver() 호출 시 None 반환"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"플러그인 매니저 통해 BrowserManager.get_driver() 호출 중 오류: {e}",
+                        exc_info=True,
+                    )
+            else:
+                logger.error("plugin_manager.browser가 BrowserManager 타입이 아닙니다.")
 
-        # 여전히 문제가 있으면 분명한 오류 메시지와 함께 예외 발생
+        logger.critical(
+            "WebDriver 인스턴스를 가져올 수 없습니다. BrowserManager 또는 PluginManager 설정을 확인하세요."
+        )
         raise TypeError(
             "SearchPlugin에는 BrowserManager 인스턴스가 필요합니다. 브라우저 초기화에 실패했습니다."
         )
@@ -139,24 +172,24 @@ class SearchPlugin(PluginBase, QObject):
             self.search_result.emit({"error": "검색어를 입력해주세요."})
             return
 
-        print(f"[DEBUG] 검색 시작: 키워드 '{keyword}'")
+        logger.debug(f"검색 시작: 키워드 '{keyword}'")
         self.last_keyword = keyword.strip()
         encoded_keyword = urllib.parse.quote(self.last_keyword)
         search_url = f"https://kream.co.kr/search?keyword={encoded_keyword}&tab=products&sort=popular_score"
         driver = self._get_driver()
 
         # 현재 URL 상태 확인
-        print(f"[DEBUG] 현재 URL: {driver.current_url}")
+        logger.debug(f"현재 URL: {driver.current_url}")
 
         for attempt in range(self.max_retries):
             try:
-                print(
-                    f"[DEBUG] 검색 URL 접속 시도 ({attempt + 1} / {self.max_retries}): {search_url}"
+                logger.debug(
+                    f"검색 URL 접속 시도 ({attempt + 1} / {self.max_retries}): {search_url}"
                 )
                 driver.get(search_url)
 
                 # 페이지 로딩 확인
-                print(f"[DEBUG] 페이지 로딩 완료: {driver.current_url}")
+                logger.debug(f"페이지 로딩 완료: {driver.current_url}")
 
                 # 가능한 여러 선택자를 시도하여 검색 결과나 결과 없음 메시지 확인
                 selectors_to_try = [
@@ -177,13 +210,13 @@ class SearchPlugin(PluginBase, QObject):
                 ]
 
                 # 페이지 로딩을 기다림 (제품 카드 또는 "결과 없음" 메시지 중 하나가 나타날 때까지)
-                print("[DEBUG] 검색 결과 또는 결과 없음 메시지 대기 중...")
+                logger.debug("검색 결과 또는 결과 없음 메시지 대기 중...")
 
                 try:
                     # lambda를 명명된 함수로 변경하여 타입 추론 문제 해결
                     def check_elements_exist(driver: WebDriver) -> bool:
                         for selector in selectors_to_try + no_result_selectors:
-                            print(f"[DEBUG] 요소 존재 확인: {selector}")
+                            logger.debug(f"요소 존재 확인: {selector}")
                             elements = driver.find_elements("css selector", selector)
                             if len(elements) > 0:
                                 return True
@@ -191,23 +224,23 @@ class SearchPlugin(PluginBase, QObject):
 
                     WebDriverWait(driver, self.timeout).until(check_elements_exist)
                 except TimeoutException:
-                    print("[DEBUG] 요소 대기 시간 초과. 페이지 구조 확인 필요")
+                    logger.warning("요소 대기 시간 초과. 페이지 구조 확인 필요")
 
                 # 웹페이지 HTML 구조 확인 (디버깅용)
-                print(f"[DEBUG] HTML 제목: {driver.title}")
+                logger.debug(f"HTML 제목: {driver.title}")
 
                 # 검색 결과 선택자를 순차적으로 시도
                 products = []
                 for selector in selectors_to_try:
                     products = driver.find_elements("css selector", selector)
                     if products:
-                        print(
-                            f"[DEBUG] 검색 결과 찾음: 선택자 '{selector}'로 {len(products)}개 제품"
+                        logger.debug(
+                            f"검색 결과 찾음: 선택자 '{selector}'로 {len(products)}개 제품"
                         )
                         break
 
                 if products:
-                    print(f"[DEBUG] 검색 결과 찾음: {len(products)}개 제품")
+                    logger.debug(f"검색 결과 찾음: {len(products)}개 제품")
                     self.products = products
                     self.current_index = 0
                     self._emit_current_product()
@@ -218,13 +251,11 @@ class SearchPlugin(PluginBase, QObject):
                 for selector in no_result_selectors:
                     no_data_elements = driver.find_elements("css selector", selector)
                     if no_data_elements:
-                        print(
-                            f"[DEBUG] 검색 결과 없음 메시지 발견: 선택자 '{selector}'"
-                        )
+                        logger.debug(f"검색 결과 없음 메시지 발견: 선택자 '{selector}'")
                         break
 
                 if no_data_elements and len(no_data_elements) > 0:
-                    print("[DEBUG] 검색 결과 없음 메시지 발견")
+                    logger.debug("검색 결과 없음 메시지 발견")
                     try:
                         no_data_text = no_data_elements[0].text.strip()
                         if not no_data_text:
@@ -236,9 +267,9 @@ class SearchPlugin(PluginBase, QObject):
                     return
 
                 # 페이지 소스 출력 (디버깅용)
-                print("[DEBUG] 검색 결과를 찾을 수 없음, 페이지 소스 일부:")
+                logger.debug("검색 결과를 찾을 수 없음, 페이지 소스 일부:")
                 page_source = driver.page_source
-                print(
+                logger.debug(
                     page_source[:500] + "..." if len(page_source) > 500 else page_source
                 )
 
@@ -250,7 +281,7 @@ class SearchPlugin(PluginBase, QObject):
                 )
                 return
             except TimeoutException:
-                print(f"[DEBUG] 검색 시간 초과 ({attempt + 1}/{self.max_retries})")
+                logger.warning(f"검색 시간 초과 ({attempt + 1}/{self.max_retries})")
                 if attempt == self.max_retries - 1:
                     self.search_result.emit(
                         {"error": "검색 시간이 초과되었습니다. 다시 시도해주세요."}
@@ -258,8 +289,8 @@ class SearchPlugin(PluginBase, QObject):
                 else:
                     time.sleep(1)
             except WebDriverException as e:
-                print(
-                    f"[DEBUG] 브라우저 오류 ({attempt + 1}/{self.max_retries}): {str(e)}"
+                logger.warning(
+                    f"브라우저 오류 ({attempt + 1}/{self.max_retries}): {str(e)}"
                 )
                 if attempt == self.max_retries - 1:
                     self.search_result.emit(
@@ -268,7 +299,7 @@ class SearchPlugin(PluginBase, QObject):
                 else:
                     time.sleep(1)
             except Exception as e:
-                print(f"[DEBUG] 예상치 못한 오류: {str(e)}")
+                logger.error(f"예상치 못한 오류: {str(e)}", exc_info=True)
                 self.search_result.emit(
                     {"error": f"검색 중 예상치 못한 오류가 발생했습니다: {str(e)}"}
                 )
@@ -276,18 +307,18 @@ class SearchPlugin(PluginBase, QObject):
 
     def _emit_current_product(self: "SearchPlugin") -> None:
         """현재 제품 정보를 추출하여 신호로 방출합니다."""
-        print(
-            f"[DEBUG] _emit_current_product 호출: 인덱스 {self.current_index}, 총 {len(self.products)}개 제품"
+        logger.debug(
+            f"_emit_current_product 호출: 인덱스 {self.current_index}, 총 {len(self.products)}개 제품"
         )
 
         if not self.products:
-            print("[DEBUG] 제품 목록이 비어 있음")
+            logger.debug("제품 목록이 비어 있음")
             self.search_result.emit({"error": "검색 결과가 없습니다."})
             return
 
         try:
             if self.current_index < 0 or self.current_index >= len(self.products):
-                print(f"[DEBUG] 인덱스가 범위를 벗어남: {self.current_index}")
+                logger.warning(f"인덱스가 범위를 벗어남: {self.current_index}")
                 self.search_result.emit({"error": "유효하지 않은 제품 인덱스입니다."})
                 return
 
@@ -298,7 +329,7 @@ class SearchPlugin(PluginBase, QObject):
                 # ID나 클래스 속성을 확인하여 DOM에 여전히 존재하는지 검증
                 _ = current_product.get_attribute("class")
             except Exception as e:
-                print(f"[DEBUG] DOM 참조 오류 발생, 제품 목록 새로고침 시도: {str(e)}")
+                logger.warning(f"DOM 참조 오류 발생, 제품 목록 새로고침 시도: {str(e)}")
                 # 탐색을 다시 실행하려 시도
                 self.search(self.last_keyword)
                 return
@@ -307,11 +338,11 @@ class SearchPlugin(PluginBase, QObject):
             product_info = self.get_product_info(current_product)
 
             if not product_info:
-                print("[DEBUG] 제품 정보를 가져올 수 없음")
+                logger.warning("제품 정보를 가져올 수 없음")
                 self.search_result.emit({"error": "제품 정보를 가져올 수 없습니다."})
                 return
 
-            print(f"[DEBUG] 가져온 제품 정보: {product_info}")
+            logger.debug(f"가져온 제품 정보: {product_info}")
 
             # 제품의 링크를 가져오려고 시도
             try:
@@ -323,14 +354,14 @@ class SearchPlugin(PluginBase, QObject):
                     product_id = (
                         product_url.split("/products/")[1].split("/")[0].split("?")[0]
                     )
-                    print(f"[DEBUG] 추출된 제품 ID: {product_id}")
+                    logger.debug(f"추출된 제품 ID: {product_id}")
                     product_info["id"] = product_id
                 else:
-                    print(f"[DEBUG] 제품 URL에서 ID를 추출할 수 없음: {product_url}")
+                    logger.warning(f"제품 URL에서 ID를 추출할 수 없음: {product_url}")
                     # ID를 추출할 수 없을 경우에도 고유 식별자를 제공하기 위한 임시 ID 생성
                     product_info["id"] = f"temp_{self.current_index}"
             except Exception as e:
-                print(f"[DEBUG] 제품 URL 또는 ID 추출 중 오류: {str(e)}")
+                logger.warning(f"제품 URL 또는 ID 추출 중 오류: {str(e)}")
                 product_info["id"] = f"temp_{self.current_index}"
 
             # 네비게이션 버튼 상태
@@ -341,7 +372,9 @@ class SearchPlugin(PluginBase, QObject):
             self.search_result.emit(product_info)
 
         except Exception as e:
-            print(f"[DEBUG] _emit_current_product 에서 예외 발생: {str(e)}")
+            logger.error(
+                f"_emit_current_product 에서 예외 발생: {str(e)}", exc_info=True
+            )
             self.search_result.emit(
                 {
                     "error": "제품 정보를 처리하는 중 오류가 발생했습니다.",
@@ -410,11 +443,11 @@ class SearchPlugin(PluginBase, QObject):
             제품 정보를 담은 딕셔너리 또는 None입니다.
         """
         if current_product is None:
-            print("[DEBUG] get_product_info: current_product가 None입니다.")
+            logger.warning("get_product_info: current_product가 None입니다.")
             return None
 
         try:
-            print("[DEBUG] 제품 정보 추출 시작")
+            logger.debug("제품 정보 추출 시작")
 
             # 안전하게 HTML 출력
             try:
@@ -423,9 +456,9 @@ class SearchPlugin(PluginBase, QObject):
                     html_preview = html_preview[:200] + "..."
                 else:
                     html_preview = "(HTML을 가져올 수 없음)"
-                print(f"[DEBUG] 현재 제품 요소 HTML: {html_preview}")
+                logger.debug(f"현재 제품 요소 HTML: {html_preview}")
             except Exception as e:
-                print(f"[DEBUG] HTML 가져오기 실패: {str(e)}")
+                logger.warning(f"HTML 가져오기 실패: {str(e)}")
 
             # 다양한 CSS 선택자 시도
             title_selectors = [
@@ -495,7 +528,7 @@ class SearchPlugin(PluginBase, QObject):
                 elements = current_product.find_elements("css selector", selector)
                 if elements:
                     name = elements[0].text.strip()
-                    print(f"[DEBUG] 제품명 찾음: '{name}' (선택자: {selector})")
+                    logger.debug(f"제품명 찾음: '{name}' (선택자: {selector})")
                     break
 
             # 한국어 이름(번역된 이름) 찾기
@@ -504,8 +537,8 @@ class SearchPlugin(PluginBase, QObject):
                 elements = current_product.find_elements("css selector", selector)
                 if elements:
                     translated_name = elements[0].text.strip()
-                    print(
-                        f"[DEBUG] 한국어 이름 찾음: '{translated_name}' (선택자: {selector})"
+                    logger.debug(
+                        f"한국어 이름 찾음: '{translated_name}' (선택자: {selector})"
                     )
                     break
 
@@ -515,7 +548,7 @@ class SearchPlugin(PluginBase, QObject):
                 elements = current_product.find_elements("css selector", selector)
                 if elements:
                     brand = elements[0].text.strip()
-                    print(f"[DEBUG] 브랜드 찾음: '{brand}' (선택자: {selector})")
+                    logger.debug(f"브랜드 찾음: '{brand}' (선택자: {selector})")
                     break
 
             # 브랜드 공식 배송 아이콘 확인
@@ -524,7 +557,7 @@ class SearchPlugin(PluginBase, QObject):
                 elements = current_product.find_elements("css selector", selector)
                 if elements:
                     is_brand_official = True
-                    print(f"[DEBUG] 브랜드 공식 배송 아이콘 찾음 (선택자: {selector})")
+                    logger.debug(f"브랜드 공식 배송 아이콘 찾음 (선택자: {selector})")
                     break
 
             # 가격 찾기
@@ -533,7 +566,7 @@ class SearchPlugin(PluginBase, QObject):
                 elements = current_product.find_elements("css selector", selector)
                 if elements:
                     price = elements[0].text.strip()
-                    print(f"[DEBUG] 가격 찾음: '{price}' (선택자: {selector})")
+                    logger.debug(f"가격 찾음: '{price}' (선택자: {selector})")
                     break
 
             # 이미지 URL 찾기
@@ -542,7 +575,7 @@ class SearchPlugin(PluginBase, QObject):
                 elements = current_product.find_elements("css selector", selector)
                 if elements:
                     img_url = elements[0].get_attribute("src")
-                    print(f"[DEBUG] 이미지 URL 찾음: '{img_url}' (선택자: {selector})")
+                    logger.debug(f"이미지 URL 찾음: '{img_url}' (선택자: {selector})")
                     break
 
             # 관심수 찾기
@@ -557,8 +590,8 @@ class SearchPlugin(PluginBase, QObject):
                             wish_figure = wish_text.split("관심")[-1].strip()
                         else:
                             wish_figure = wish_text
-                        print(
-                            f"[DEBUG] 관심수 찾음: '{wish_figure}' (선택자: {selector})"
+                        logger.debug(
+                            f"관심수 찾음: '{wish_figure}' (선택자: {selector})"
                         )
                         break
 
@@ -574,13 +607,13 @@ class SearchPlugin(PluginBase, QObject):
                             review_figure = review_text.split("리뷰")[-1].strip()
                         else:
                             review_figure = review_text
-                        print(
-                            f"[DEBUG] 리뷰수 찾음: '{review_figure}' (선택자: {selector})"
+                        logger.debug(
+                            f"리뷰수 찾음: '{review_figure}' (선택자: {selector})"
                         )
                         break
 
-            print(
-                f"[DEBUG] 제품 정보 추출 완료: {name}, {brand}, {price}, "
+            logger.debug(
+                f"제품 정보 추출 완료: {name}, {brand}, {price}, "
                 f"이미지URL: {img_url is not None}, 관심수: {wish_figure}, 리뷰수: {review_figure}"
             )
 
@@ -596,7 +629,7 @@ class SearchPlugin(PluginBase, QObject):
                 "is_brand_official": is_brand_official,
             }
         except NoSuchElementException as e:
-            print(f"[DEBUG] NoSuchElementException: {str(e)}")
+            logger.error(f"NoSuchElementException: {str(e)}", exc_info=True)
             # 오류 발생해도, 기본 정보를 담은 결과 반환
             return {
                 "name": "이름 없음",
@@ -609,7 +642,7 @@ class SearchPlugin(PluginBase, QObject):
                 "is_brand_official": False,
             }
         except StaleElementReferenceException as e:
-            print(f"[DEBUG] StaleElementReferenceException: {str(e)}")
+            logger.error(f"StaleElementReferenceException: {str(e)}", exc_info=True)
             # 기본 정보 반환
             return {
                 "name": "이름 없음 (페이지 변경됨)",
@@ -622,7 +655,7 @@ class SearchPlugin(PluginBase, QObject):
                 "is_brand_official": False,
             }
         except Exception as e:
-            print(f"[DEBUG] 제품 정보 추출 중 오류: {str(e)}")
+            logger.error(f"제품 정보 추출 중 오류: {str(e)}", exc_info=True)
             # 기본 정보 반환
             return {
                 "name": "이름 없음 (오류)",

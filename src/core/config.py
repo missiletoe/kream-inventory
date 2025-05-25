@@ -1,9 +1,16 @@
 """설정 파일을 사용하여 애플리케이션 설정을 관리합니다."""
 
 import configparser
+import logging  # noqa: F401 # 로깅 모듈 임포트
 import os
 import sys
 from typing import Optional
+
+# logger_setup 임포트
+from src.core.logger_setup import setup_logger
+
+# 전역 로거 설정
+logger = setup_logger(__name__)
 
 
 class ConfigManager:
@@ -23,24 +30,25 @@ class ConfigManager:
         if not os.path.exists(config_dir) and config_dir:
             try:
                 os.makedirs(config_dir)
-                print(f"설정 디렉토리 생성됨: {config_dir}")
+                logger.info(f"설정 디렉토리 생성됨: {config_dir}")
             except Exception as e:
-                print(f"설정 디렉토리 생성 실패: {e}")
+                logger.error(f"설정 디렉토리 생성 실패: {e}", exc_info=True)
 
         # 설정 파일 로딩 또는 생성
         if os.path.exists(config_path):
             try:
                 self.cfg.read(config_path, encoding="utf-8")
-                print(f"설정 파일 로드 성공: {config_path}")
+                logger.info(f"설정 파일 로드 성공: {config_path}")
             except Exception as e:
-                print(f"설정 파일 로드 실패, 기본값 사용: {e}")
+                logger.error(f"설정 파일 로드 실패, 기본값 사용: {e}", exc_info=True)
                 self._create_default()
         else:
-            print(f"설정 파일이 존재하지 않습니다. 기본 설정 생성: {config_path}")
+            logger.info(f"설정 파일이 존재하지 않습니다. 기본 설정 생성: {config_path}")
             self._create_default()
 
     def _create_default(self: "ConfigManager") -> None:
         """설정 파일이 없으면 기본 설정 파일을 생성합니다."""
+        logger.info("기본 설정 파일 생성을 시작합니다.")
         # Set user-agent based on OS platform
         if sys.platform == "darwin":
             user_agent = (
@@ -60,28 +68,36 @@ class ConfigManager:
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/134.0.0.0 Safari/537.36"
             )
+        logger.debug(f"User-agent 설정: {user_agent}")
 
         # Default settings
         self.cfg["Browser"] = {"user_agent": user_agent, "headless": "yes"}
-
         self.cfg["Macro"] = {"min_interval": "8", "max_interval": "18"}
+        logger.debug(
+            f"기본 설정: Browser={self.cfg['Browser']}, Macro={self.cfg['Macro']}"
+        )
 
         # Save default config to file
         try:
             with open(self.path, "w", encoding="utf-8") as f:
                 self.cfg.write(f)
-                print(f"기본 설정 파일 생성 성공: {self.path}")
+                logger.info(f"기본 설정 파일 생성 성공: {self.path}")
         except Exception as e:
-            print(f"기본 설정 파일 생성 실패: {e}")
+            logger.error(f"기본 설정 파일 생성 실패: {e}", exc_info=True)
             # 기본 설정 파일을 현재 디렉토리에 강제 저장 시도
             try:
                 fallback_path = os.path.join(os.getcwd(), "config.ini")
+                logger.warning(
+                    f"기본 설정 파일을 현재 디렉토리에 저장 시도: {fallback_path}"
+                )
                 with open(fallback_path, "w", encoding="utf-8") as f:
                     self.cfg.write(f)
-                    print(f"기본 설정 파일을 현재 디렉토리에 저장: {fallback_path}")
-                    self.path = fallback_path
+                    logger.info(
+                        f"기본 설정 파일을 현재 디렉토리에 저장 성공: {fallback_path}"
+                    )
+                    self.path = fallback_path  # 경로 업데이트
             except Exception as e2:
-                print(f"대체 설정 파일 생성도 실패: {e2}")
+                logger.error(f"대체 설정 파일 생성도 실패: {e2}", exc_info=True)
 
     def get(
         self: "ConfigManager", section: str, option: str, fallback: Optional[str] = None
@@ -120,7 +136,9 @@ class ConfigManager:
             if fallback is not None:
                 return fallback
         except Exception as e:
-            print(f"부울 설정 값 가져오기 실패 ({section}.{option}): {e}")
+            logger.error(
+                f"부울 설정 값 가져오기 실패 ({section}.{option}): {e}", exc_info=True
+            )
             if fallback is not None:
                 return fallback
 
