@@ -6,7 +6,7 @@ echo "🧹 Running black (format check)..."
 black --check .
 
 echo "🧪 Running mypy (type check)..."
-mypy src/
+mypy --explicit-package-bases src/
 
 echo "🔍 Running flake8 (style lint)..."
 flake8 src/
