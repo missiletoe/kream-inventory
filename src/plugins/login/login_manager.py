@@ -11,7 +11,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
 
-from src.core.selenium_helpers import wait_for_element_clickable
+from src.core.selenium_helpers import wait_for_element, wait_for_element_clickable
 
 
 class LoginManager:
@@ -73,40 +73,30 @@ class LoginManager:
             return False
 
         try:
-            # wait_for_element 사용 시 self.browser를 인수로 전달
-            email_input = wait_for_element_clickable(
-                self.browser, By.CSS_SELECTOR, 'input[type="email"]', timeout=10
+            email_input = wait_for_element(
+                self.browser, By.CSS_SELECTOR, "input[type='email']", timeout=5
             )
-            password_input = wait_for_element_clickable(
-                self.browser, By.CSS_SELECTOR, 'input[type="password"]', timeout=10
+            password_input = wait_for_element(
+                self.browser, By.CSS_SELECTOR, "input[type='password']", timeout=5
             )
             if not email_input or not password_input:
                 return False
 
             email_input.clear()
-            email_input.send_keys(email)
             password_input.clear()
+            email_input.send_keys(email)
             password_input.send_keys(password)
 
-            # wait_for_element 사용 시 self.browser를 인수로 전달
             login_button = wait_for_element_clickable(
                 self.browser,
                 By.XPATH,
                 '//button[contains(text(),"로그인")]',
-                timeout=10,
+                timeout=5,
             )
             if not login_button:
                 return False
             login_button.click()
-            try:
-                WebDriverWait(self.browser, 10).until(
-                    ec.invisibility_of_element_located(
-                        (By.CSS_SELECTOR, 'input[type="email"]')
-                    )
-                )
-                return True
-            except TimeoutException:
-                return False
+            return True
 
         except Exception:
             return False

@@ -61,7 +61,7 @@ class MainWindow(QWidget):
 
     def initUI(self: MainWindow) -> None:
         """UI를 초기화하고 기본 레이아웃을 설정합니다."""
-        self.setWindowTitle("크림 보관판매 매크로 by missiletoe")
+        self.setWindowTitle("Kream Inventory")
 
         # Set window icon
         QApplication.setWindowIcon(get_window_icon())
