@@ -17,15 +17,19 @@ echo "🧹 린트 검사 실행 중..."
 echo "🚀 PyInstaller로 빌드 중..."
 pyinstaller --noconfirm kream_inventory.spec
 
-echo "🔏 보안 속성 해제 및 앱 서명 중..."
-sudo xattr -rd com.apple.quarantine dist/kream_inventory.app
-sudo /usr/bin/codesign --force --deep --sign - dist/kream_inventory.app
+echo "🔍 빌드 후 Frameworks 디렉토리 내용 확인 중..."
+ls -l dist/KreamInventory.app/Contents/Frameworks/
+find dist/KreamInventory.app -name "chromedriver" -ls
 
-echo "🎉 빌드 완료! 앱은 dist/kream_inventory.app에 있습니다."
+echo "🔏 보안 속성 해제 및 앱 서명 중..."
+sudo xattr -rc dist/KreamInventory.app
+sudo /usr/bin/codesign --force --deep --sign - dist/KreamInventory.app
+
+echo "🎉 빌드 완료! 앱은 dist/KreamInventory.app에 있습니다."
 echo "🔑 앱 서명 완료! 앱을 실행할 수 있습니다."
 
 echo "========================================================"
 echo "🔍 앱 실행 문제 디버깅을 위한 정보:"
-echo "- 앱을 터미널에서 실행하여 오류 로그 확인: open -a Terminal dist/kream_inventory.app/Contents/MacOS/kream_inventory"
-echo "- 또는 로그 파일 확인: cat ~/Library/Logs/DiagnosticReports/kream_inventory_*.crash"
+echo "- 앱을 터미널에서 실행하여 오류 로그 확인: open -a Terminal dist/KreamInventory.app/Contents/MacOS/KreamInventory"
+echo "- 또는 로그 파일 확인: cat ~/Library/Logs/DiagnosticReports/KreamInventory_*.crash"
 echo "========================================================"

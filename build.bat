@@ -21,11 +21,11 @@ call lint.bat
 echo 🚀 PyInstaller로 빌드 중...
 pyinstaller kream_inventory.spec
 
-echo 🎉 빌드 완료! 앱은 dist\kream_inventory.exe에 있습니다.
+echo 🎉 빌드 완료! 앱은 dist\KreamInventory.exe에 있습니다.
 
 echo ========================================================
 echo 🔍 앱 실행 문제 디버깅을 위한 정보:
-echo - 앱을 cmd에서 실행하여 오류 로그 확인: dist\kream_inventory.exe
+echo - 앱을 cmd에서 실행하여 오류 로그 확인: dist\KreamInventory.exe
 echo ========================================================
 
 pause 
