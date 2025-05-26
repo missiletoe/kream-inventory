@@ -4,6 +4,7 @@
 """
 
 import re
+import time
 
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
@@ -84,6 +85,7 @@ class LoginManager:
 
             email_input.clear()
             password_input.clear()
+            time.sleep(0.5)
             email_input.send_keys(email)
             password_input.send_keys(password)
 
