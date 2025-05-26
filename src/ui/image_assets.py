@@ -3,7 +3,6 @@
 import os
 import sys
 
-# requests 모듈 임포트
 import requests
 from PyQt6.QtGui import QIcon, QPixmap, QScreen
 

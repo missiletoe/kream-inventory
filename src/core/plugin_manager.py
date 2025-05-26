@@ -5,13 +5,17 @@ from __future__ import annotations
 from configparser import ConfigParser
 from typing import TYPE_CHECKING, Any, Dict, Optional, Type
 
-from ..plugins import LoginPlugin, MacroPlugin, SearchPlugin
-from ..plugins.search import DetailPlugin
-from .browser import BrowserManager
-from .plugin_base import PluginBase
+from src.core.browser import BrowserManager
+from src.core.logger_setup import setup_logger, trace_log
+from src.core.plugin_base import PluginBase
+from src.plugins import LoginPlugin, MacroPlugin, SearchPlugin
+from src.plugins.search import DetailPlugin
 
 if TYPE_CHECKING:
-    from .main_controller import MainController
+    from src.core.main_controller import MainController
+
+# 전역 로거 설정
+logger = setup_logger(__name__)
 
 
 class PluginManager:
@@ -58,8 +62,10 @@ class PluginManager:
         """
         try:
             plugin_name = plugin_class.__name__.lower().replace("plugin", "")
-            print(
-                f"Debug: Initializing plugin {plugin_class.__name__} with name '{plugin_name}'"
+            trace_log(
+                logger,
+                f"Initializing plugin {plugin_class.__name__} with name '{plugin_name}'",
+                level="DEBUG",
             )
             plugin_instance = plugin_class(
                 name=plugin_name,
@@ -68,15 +74,19 @@ class PluginManager:
                 plugin_manager=self,
             )
             self.plugins[plugin_instance.name] = plugin_instance
-            print(f"Debug: Added plugin '{plugin_instance.name}' to plugins dictionary")
+            trace_log(
+                logger,
+                f"Added plugin '{plugin_instance.name}' to plugins dictionary",
+                level="DEBUG",
+            )
         except Exception as e:
-            print(f"Debug: Error initializing plugin {plugin_class.__name__}: {str(e)}")
+            trace_log(
+                logger,
+                f"Error initializing plugin {plugin_class.__name__}: {e}",
+                level="ERROR",
+            )
 
-    def get_plugin(
-        self: PluginManager, name: str
-    ) -> Optional[
-        Any
-    ]:  # TODO: 특정 플러그인 타입 또는 PluginBase를 반환하도록 수정해야 합니다.
+    def get_plugin(self: PluginManager, name: str) -> Optional[Any]:
         """이름으로 로드된 플러그인을 검색합니다.
 
         Args:
@@ -87,7 +97,9 @@ class PluginManager:
         """
         plugin = self.plugins.get(name)
         if plugin is None:
-            print(
-                f"Debug: Plugin '{name}' is not found. Available plugins: {list(self.plugins.keys())}"
+            trace_log(
+                logger,
+                f"Plugin '{name}' is not found. Available plugins: {list(self.plugins.keys())}",
+                level="WARNING",
             )
         return plugin

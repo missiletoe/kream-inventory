@@ -20,8 +20,6 @@ __pycache__/
 *$py.class
 *.spec.pyd
 .Python
-*.log
-debug_log.txt
 
 # PyInstaller
 *.spec
@@ -31,5 +29,10 @@ debug_log.txt
 .mypy_cache/
 
 build/
+dist/
+.run/
+logs/
+*.log
+
 references
 src_old

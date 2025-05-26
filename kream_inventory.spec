@@ -62,7 +62,7 @@ exe = EXE(
     a.scripts,
     [],  # 이 부분을 비워서 onedir 모드로 설정
     exclude_binaries=True,  # onedir 모드를 위해 True로 설정
-    name='kream_inventory',
+    name='KreamInventory',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -84,28 +84,33 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='kream_inventory',
+    name='KreamInventory',
 )
 
 app = BUNDLE(
     coll,  # exe 대신 coll을 사용
-    name='kream_inventory.app',
+    name='KreamInventory.app',
     icon='src/assets/icon.icns',
     bundle_identifier='com.missiletoe.kream_inventory',
     info_plist={
-        'NSHighResolutionCapable': 'True',
+        'CFBundleDocumentTypes': [],
+        'CFBundleExecutable': 'KreamInventory',
+        'CFBundleName': 'KreamInventory',
+        'CFBundleDisplayName': 'KreamInventory',
+        'CFBundleIdentifier': 'com.missiletoe.kream_inventory',
+        'CFBundleVersion': '0.2.1',
         'CFBundleShortVersionString': '0.2.1',
-        'NSPrincipalClass': 'NSApplication',  # 기본 클래스 지정
-        'CFBundleDocumentTypes': [],  # 문서 타입 지정
+        'NSPrincipalClass': 'NSApplication',
+        'NSHighResolutionCapable': 'True',
     },
     copyright='Copyright 2025 Missiletoe',
     author='Missiletoe',
-    comments='Kream Inventory is a tool for managing your Kream inventory.',
+    comments='크림 보관판매 절차를 자동화하는 프로그램입니다. Made by @missiletoe',
     category='Productivity',
-    keywords=['kream', 'inventory', 'management'],
+    keywords=['kream', 'inventory', 'management', 'automation'],
     bundle_version='0.2.1',
     bundle_short_version='0.2.1',
     bundle_version_string='0.2.1',
-    bundle_name='Kream Inventory',
-    bundle_display_name='Kream Inventory',
+    bundle_name='KreamInventory',
+    bundle_display_name='KreamInventory',
 )
