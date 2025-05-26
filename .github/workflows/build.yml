@@ -1,0 +1,77 @@
+name: Build and Upload Release Assets
+
+# Trigger when a release is published on GitHub
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-windows:
+    name: Build Windows executable
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Build .exe with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --windowed \\
+            --icon=src/assets/icon.ico \\
+            --name KreamInventory src/main.py
+
+      - name: Upload Windows asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: dist/KreamInventory.exe
+          asset_name: KreamInventory.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    name: Build macOS app bundle
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Build .app with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --windowed \\
+            --icon=src/assets/icon.icns \\
+            --name KreamInventory src/main.py
+
+      - name: Upload macOS asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: dist/KreamInventory.app
+          asset_name: KreamInventory.app
+          asset_content_type: application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
