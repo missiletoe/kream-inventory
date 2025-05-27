@@ -20,15 +20,17 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if (Test-Path 'requirements.txt') { pip install -r requirements.txt }
 
       - name: Build .exe with PyInstaller
+        shell: pwsh
         run: |
-          pyinstaller --noconfirm --onefile --windowed \\
-            --icon=src/assets/icon.ico \\
+          pyinstaller --noconfirm --onefile --windowed `
+            --icon=src/assets/icon.ico `
             --name KreamInventory src/main.py
 
       - name: Upload Windows asset
@@ -62,8 +64,8 @@ jobs:
 
       - name: Build .app with PyInstaller
         run: |
-          pyinstaller --noconfirm --onefile --windowed \\
-            --icon=src/assets/icon.icns \\
+          pyinstaller --noconfirm --onefile --windowed \
+            --icon=src/assets/icon.icns \
             --name KreamInventory src/main.py
 
       - name: Upload macOS asset
